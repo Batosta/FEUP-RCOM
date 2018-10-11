@@ -87,7 +87,7 @@ void serialPortSetup(int path, struct termios *newtio) {
 }
 
 int waitForData(int path) {
-  char buf[1];
+  unsigned char buf[1];
   int res;
   statemachine *controller = newStateMachine();
 
@@ -106,28 +106,28 @@ int sendSetMessage(int path) {
   int i = 0;
   int writtenBytes = 0;
 
-  setMessage[0] = FLAG;
+  	setMessage[0] = FLAG;
 	setMessage[1] = AE;
 	setMessage[2] = SET;	// If this was the receptor SET[2] would be 0x01
 	setMessage[3] = setMessage[1]^setMessage[2];
 	setMessage[4] = FLAG;
 
-  for(i; i < 5; i++) {
-    writtenBytes += write(path, setMessage[i], 1);
-  }
+    writtenBytes = write(path, setMessage, 5);
+  
 
-  if(writtenBytes != 5) {
-    return FALSE;
-  }
+  	if(writtenBytes != 5) {
+    	return FALSE;
+  	}
 
-  return TRUE;
+  	return TRUE;
 }
 
 int llopen(int path, int mode) {
 
   switch(mode) {
     case RECEIVER:
-      waitForData(path);
+      if(waitForData(path) == TRUE)
+		printf("Data received \n");
       sendSetMessage(path);
       break;
     case TRASNMITTER:
@@ -164,11 +164,12 @@ int main(int argc, char** argv) {
     printf("Connection established!");
   } else {
     perror("connection failed!");
+	
     tcsetattr(fd,TCSANOW,&oldtio);
     close(fd);
     exit(-1);
   }
-
+  sleep(1);
   tcsetattr(fd,TCSANOW,&oldtio);
 
   close(fd);
