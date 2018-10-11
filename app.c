@@ -26,8 +26,17 @@
 struct termios oldtio;
 int path;
 
+int flag=1, conta=1;
+
+void atende()                  
+{
+	printf("alarme # %d\n", conta);
+	flag=1;
+	conta++;
+}
+
 void printUsage() {
-  printf("Usage:\tnserial SerialPort mode<sender/receiver>\n\tex: nserial /dev/ttyS1 sender\n");
+  printf("Usage:\tnserial SerialPort mode<transmitter/receiver>\n\tex: nserial /dev/ttyS1 transmitter\n");
   exit(1);
 }
 
@@ -42,7 +51,7 @@ void analyseArgs(int argc, char** argv) {
   }
 
   /* Analyse second argument */
-  if(strcmp("receiver", argv[2]) != 0 && strcmp("sender", argv[2]) != 0) {
+  if(strcmp("receiver", argv[2]) != 0 && strcmp("transmitter", argv[2]) != 0) {
     printUsage();
   }
 }
@@ -134,10 +143,22 @@ int llopen(int path, int mode) {
 		printf("Data received \n");
       sendSetMessage(path);
       break;
+
     case TRASNMITTER:
-      sendSetMessage(path);
-      waitForData(path);
+
+	  while(conta < 4){
+	  	sendSetMessage(path);
+		alarm(3);
+		
+
+		if(waitForData(path) == TRUE){
+		
+			conta = 5;
+			alarm(0);
+		}
+
       break;
+
     default:
       return FALSE;
   }
@@ -162,6 +183,7 @@ int main(int argc, char** argv) {
   struct termios newtio;
 
   signal(SIGINT, sigint_handler);
+  (void) signal(SIGALRM, atende);
 
   analyseArgs(argc, argv);
 
