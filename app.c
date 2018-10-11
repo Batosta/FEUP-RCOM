@@ -7,6 +7,7 @@
 #include <strings.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 #include "StateMachine.h"
 
 #define BAUDRATE B38400
@@ -21,6 +22,9 @@
 #define SET 0x03
 #define DISC 0x09
 #define UA 0x07
+
+struct termios oldtio;
+int path;
 
 void printUsage() {
   printf("Usage:\tnserial SerialPort mode<sender/receiver>\n\tex: nserial /dev/ttyS1 sender\n");
@@ -141,14 +145,29 @@ int llopen(int path, int mode) {
   return TRUE;
 }
 
+void sigint_handler(int signo) {
+	printf("Ctrl+C received\n");
+
+	if(tcsetattr(path, TCSANOW, &oldtio) == -1) {
+    perror("signal tcsetattr");
+    exit(-1);
+  }
+
+	exit(0);
+}
+
 int main(int argc, char** argv) {
 
   int fd, c, res, mode;
-  struct termios oldtio, newtio;
+  struct termios newtio;
+
+  signal(SIGINT, sigint_handler);
 
   analyseArgs(argc, argv);
 
   fd = openSerialPort(argv[1]);
+
+  path = fd;
 
   getOldAttributes(fd, &oldtio);
 
@@ -169,6 +188,7 @@ int main(int argc, char** argv) {
     close(fd);
     exit(-1);
   }
+
   sleep(1);
   tcsetattr(fd,TCSANOW,&oldtio);
 
