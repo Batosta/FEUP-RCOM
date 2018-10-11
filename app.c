@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include "StateMachine.h"
+#include "api.h"
 
 #define BAUDRATE B38400
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
@@ -30,8 +31,8 @@ int flag=1, conta=1;
 
 void atende()                  
 {
-	printf("alarme # %d\n", conta);
-	flag=1;
+	/*printf("alarme # %d\n", conta);
+	flag=1;*/
 	conta++;
 }
 
@@ -143,27 +144,24 @@ int llopen(int path, int mode) {
 		printf("Data received \n");
       sendSetMessage(path);
       break;
-
     case TRASNMITTER:
-
 	  while(conta < 4){
 	  	sendSetMessage(path);
 		alarm(3);
-		
-
+printf("CONTA: %d\n", conta);
 		if(waitForData(path) == TRUE){
-		
 			conta = 5;
 			alarm(0);
 		}
-
+printf("CONTA: %d\n", conta);
+	  }
       break;
-
     default:
       return FALSE;
   }
 
   return TRUE;
+
 }
 
 void sigint_handler(int signo) {
