@@ -7,6 +7,8 @@ applicationLayer * getAppLayer (int fd, int mode) {
 
 	a->fileDescriptor = fd;
 	a->status = mode;
+
+	return a;
 }
 
 int getFileDescriptor(applicationLayer *a){
@@ -44,4 +46,3 @@ void defineStatus(applicationLayer *a, int status){
 //void destructStatus(applicationLayer *a){
 //	free(a->status);
 //}
-

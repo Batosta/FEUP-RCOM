@@ -28,6 +28,10 @@ void defineFrame(linkLayer *a, char *frame){
 	strcpy(a->frame,frame);
 }
 
+void anotherTry(linkLayer *a) {
+	a->tries++;
+}
+
 
 //GETS
 linkLayer * getLinkLayer(unsigned short nTries, unsigned short timeout, char * port) {

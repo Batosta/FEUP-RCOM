@@ -51,6 +51,8 @@ char * getFrame(linkLayer *ll);
 
 //DEFINES
 
+void anotherTry(linkLayer *a);
+
 void definePort(linkLayer *a, char *port);
 
 void defineBaudRate(linkLayer *a, int baudRate);

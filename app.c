@@ -35,9 +35,9 @@ int flag=0, conta=1;
 
 void atende()
 {
-	printf("alarme # %d\n", conta);
+	printf("Trying  to connect %hd of %hd times.\n", getNumberOFTries(linkL) + 1, getnumTransformations(linkL));
 	flag=0;
-	conta++;
+	anotherTry(linkL);
 }
 
 void printUsage() {
@@ -117,15 +117,14 @@ void serialPortSetup(int path, struct termios *newtio) {
 
 int waitForData(int path) {
 	unsigned char buf[1];
-	int res;
-
 
 	if(getMachineState(controller) == FINAL_STATE) {
 		return TRUE;
 	}
 
 	memset(buf, 0, 1);
-	res = read(path,buf,1);
+
+	read(path,buf,1);
 
 	interpretSignal(controller, buf[0]);
 
@@ -138,7 +137,6 @@ int waitForData(int path) {
 
 int sendSetMessage(int path) {
 	unsigned char setMessage[5];
-	int i = 0;
 	int writtenBytes = 0;
 
 	setMessage[0] = FLAG;
@@ -163,29 +161,29 @@ int llopen(int path, int mode) {
 
 	switch(mode) {
 		case RECEIVER:
-		while(waitForData(path) == FALSE) {}
-		printf("Data received \n");
-		sendSetMessage(path);
+			while(waitForData(path) == FALSE) {}
+			printf("Data received \n");
+			sendSetMessage(path);
 		break;
 		case TRASNMITTER:
-		while(conta < 4){
-			if(flag == 0) {
-				sendSetMessage(path);
-				alarm(3);
-				flag = 1;
+			while(getNumberOFTries(linkL) < getnumTransformations(linkL)){
+				if(flag == 0) {
+					sendSetMessage(path);
+					alarm(getTimeout(linkL));
+					flag = 1;
+				}
+				if(waitForData(path) == TRUE){
+					alarm(0);
+					return TRUE;
+				}
 			}
-			if(waitForData(path) == TRUE){
-				conta = 5;
-				alarm(0);
-			}
-		}
+			return FALSE;
 		break;
 		default:
-		return FALSE;
+			return FALSE;
 	}
-
+	
 	return TRUE;
-
 }
 
 void sigint_handler(int signo) {
@@ -215,7 +213,7 @@ void configureLinkLayer(char * path) {
 
 int main(int argc, char** argv) {
 
-	int fd, c, res, mode;
+	int fd, mode;
 	struct termios newtio;
 
 	signal(SIGINT, sigint_handler);
