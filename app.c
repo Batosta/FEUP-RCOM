@@ -26,141 +26,164 @@
 
 struct termios oldtio;
 int path;
+statemachine * controller;
+linkLayer * linkL;
+applicationLayer * app;
 
-int flag=1, conta=1;
+int flag=0, conta=1;
 
-void atende()                  
+void atende()
 {
-	/*printf("alarme # %d\n", conta);
-	flag=1;*/
+	printf("alarme # %d\n", conta);
+	flag=0;
 	conta++;
 }
 
 void printUsage() {
-  printf("Usage:\tnserial SerialPort mode<transmitter/receiver>\n\tex: nserial /dev/ttyS1 transmitter\n");
-  exit(1);
+	printf("Usage:\tnserial SerialPort mode<transmitter/receiver>\n\tex: nserial /dev/ttyS1 transmitter\n");
+	exit(1);
 }
 
-void analyseArgs(int argc, char** argv) {
-  if(argc < 3) {
-    printUsage();
-  }
-
-  /* Analyse first argument */
-  if((strcmp("/dev/ttyS0", argv[1]) != 0) && (strcmp("/dev/ttyS1", argv[1]) != 0)) {
-    printUsage();
-  }
-
-  /* Analyse second argument */
-  if(strcmp("receiver", argv[2]) != 0 && strcmp("transmitter", argv[2]) != 0) {
-    printUsage();
-  }
+int getMode(char * mode) {
+	if(strcmp(mode, "transmitter") == 0) {
+		return TRASNMITTER;
+	}
+	else {
+		return RECEIVER;
+	}
 }
 
 int openSerialPort(char* path) {
-  int f = open(path, O_RDWR | O_NOCTTY );
+	int f = open(path, O_RDWR | O_NOCTTY );
 
-  if(f < 0) {
-    perror(path);
-    exit(-1);
-  }
+	if(f < 0) {
+		perror(path);
+		exit(-1);
+	}
 
-  return f;
+	return f;
+}
+
+void analyseArgs(int argc, char** argv) {
+	if(argc < 3) {
+		printUsage();
+	}
+
+	/* Analyse first argument */
+	if((strcmp("/dev/ttyS0", argv[1]) != 0) && (strcmp("/dev/ttyS1", argv[1]) != 0)) {
+		printUsage();
+	}
+
+	/* Analyse second argument */
+	if(strcmp("receiver", argv[2]) != 0 && strcmp("transmitter", argv[2]) != 0) {
+		printUsage();
+	}
+
+	app = getAppLayer(openSerialPort(argv[1]), getMode(argv[2]));
 }
 
 void getOldAttributes(int path, struct termios* oldtio) {
-  if ( tcgetattr(path ,oldtio) == -1) { /* save current port settings */
-    perror("tcgetattr");
-    exit(-1);
-  }
+	if ( tcgetattr(path ,oldtio) == -1) { /* save current port settings */
+		perror("tcgetattr");
+		exit(-1);
+	}
 }
 
 void setNewAttributes(struct termios *newtio) {
-  bzero(newtio, sizeof(struct termios));
-  newtio->c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
-  newtio->c_iflag = IGNPAR;
-  newtio->c_oflag = 0;
+	bzero(newtio, sizeof(struct termios));
+	newtio->c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
+	newtio->c_iflag = IGNPAR;
+	newtio->c_oflag = 0;
 
-  /* set input mode (non-canonical, no echo,...) */
-  newtio->c_lflag = 0;
+	/* set input mode (non-canonical, no echo,...) */
+	newtio->c_lflag = 0;
 
-  newtio->c_cc[VTIME] = 0;   /* inter-character timer unused */
-  newtio->c_cc[VMIN] = 1;   /* blocking read until 5 chars received */
+	newtio->c_cc[VTIME] = 0;   /* inter-character timer unused */
+	newtio->c_cc[VMIN] = 0;   /* blocking read until 5 chars received */
 }
 
 void serialPortSetup(int path, struct termios *newtio) {
 
-  setNewAttributes(newtio);
+	setNewAttributes(newtio);
 
-  tcflush(path, TCIOFLUSH);
+	tcflush(path, TCIOFLUSH);
 
-  if(tcsetattr(path, TCSANOW, newtio) == -1) {
-    perror("tcsetattr");
-    exit(-1);
-  }
+	if(tcsetattr(path, TCSANOW, newtio) == -1) {
+		perror("tcsetattr");
+		exit(-1);
+	}
 }
 
 int waitForData(int path) {
-  unsigned char buf[1];
-  int res;
-  statemachine *controller = newStateMachine();
+	unsigned char buf[1];
+	int res;
 
-  while(getMachineState(controller) != FINAL_STATE) {
-    memset(buf, 0, 1);
-    res = read(path,buf,1);
-    printf("Received: %x  res: %d\n", buf[0], res);
-    interpretSignal(controller, buf[0]);
-  }
 
-  return TRUE;
+	if(getMachineState(controller) == FINAL_STATE) {
+		return TRUE;
+	}
+
+	memset(buf, 0, 1);
+	res = read(path,buf,1);
+
+	interpretSignal(controller, buf[0]);
+
+	if(getMachineState(controller) == FINAL_STATE) {
+		return TRUE;
+	} else {
+		return FALSE;
+	}
 }
 
 int sendSetMessage(int path) {
-  unsigned char setMessage[5];
-  int i = 0;
-  int writtenBytes = 0;
+	unsigned char setMessage[5];
+	int i = 0;
+	int writtenBytes = 0;
 
-  	setMessage[0] = FLAG;
+	setMessage[0] = FLAG;
 	setMessage[1] = AE;
 	setMessage[2] = SET;	// If this was the receptor SET[2] would be 0x01
 	setMessage[3] = setMessage[1]^setMessage[2];
 	setMessage[4] = FLAG;
 
-    writtenBytes = write(path, setMessage, 5);
-  
+	//ESCREVER UM BYTE DE CADA VEZ
 
-  	if(writtenBytes != 5) {
-    	return FALSE;
-  	}
+	writtenBytes = write(path, setMessage, 5);
 
-  	return TRUE;
+
+	if(writtenBytes != 5) {
+		return FALSE;
+	}
+
+	return TRUE;
 }
 
 int llopen(int path, int mode) {
 
-  switch(mode) {
-    case RECEIVER:
-      if(waitForData(path) == TRUE)
+	switch(mode) {
+		case RECEIVER:
+		while(waitForData(path) == FALSE) {}
 		printf("Data received \n");
-      sendSetMessage(path);
-      break;
-    case TRASNMITTER:
-	  while(conta < 4){
-	  	sendSetMessage(path);
-		alarm(3);
-printf("CONTA: %d\n", conta);
-		if(waitForData(path) == TRUE){
-			conta = 5;
-			alarm(0);
+		sendSetMessage(path);
+		break;
+		case TRASNMITTER:
+		while(conta < 4){
+			if(flag == 0) {
+				sendSetMessage(path);
+				alarm(3);
+				flag = 1;
+			}
+			if(waitForData(path) == TRUE){
+				conta = 5;
+				alarm(0);
+			}
 		}
-printf("CONTA: %d\n", conta);
-	  }
-      break;
-    default:
-      return FALSE;
-  }
+		break;
+		default:
+		return FALSE;
+	}
 
-  return TRUE;
+	return TRUE;
 
 }
 
@@ -168,51 +191,71 @@ void sigint_handler(int signo) {
 	printf("Ctrl+C received\n");
 
 	if(tcsetattr(path, TCSANOW, &oldtio) == -1) {
-    perror("signal tcsetattr");
-    exit(-1);
-  }
+		perror("signal tcsetattr");
+		exit(-1);
+	}
 
 	exit(0);
 }
 
+void configureLinkLayer(char * path) {
+	unsigned short tm, tries;
+
+	printf("Insert timeout value (s): ");
+
+	scanf("%hd", &tm);
+
+	printf("Insert number of tries: ");
+
+	scanf("%hd", &tries);
+
+	linkL = getLinkLayer(tries, tm, path);
+}
+
 int main(int argc, char** argv) {
 
-  int fd, c, res, mode;
-  struct termios newtio;
+	int fd, c, res, mode;
+	struct termios newtio;
 
-  signal(SIGINT, sigint_handler);
-  (void) signal(SIGALRM, atende);
+	signal(SIGINT, sigint_handler);
+	(void) signal(SIGALRM, atende);
 
-  analyseArgs(argc, argv);
+	analyseArgs(argc, argv);
 
-  fd = openSerialPort(argv[1]);
+	fd = openSerialPort(argv[1]);
 
-  path = fd;
+	path = fd;
 
-  getOldAttributes(fd, &oldtio);
+	getOldAttributes(fd, &oldtio);
 
-  serialPortSetup(fd, &newtio);
+	defineOldPortAttr(app, oldtio);
 
-  if(strcmp(argv[2], "transmitter") == 0) {
-    mode = TRASNMITTER;
-  } else {
-    mode = RECEIVER;
-  }
+	configureLinkLayer(argv[1]);
 
-  if(llopen(fd, mode) == TRUE) {
-    printf("Connection established!");
-  } else {
-    perror("connection failed!");
-	
-    tcsetattr(fd,TCSANOW,&oldtio);
-    close(fd);
-    exit(-1);
-  }
+	serialPortSetup(fd, &newtio);
 
-  sleep(1);
-  tcsetattr(fd,TCSANOW,&oldtio);
+	if(strcmp(argv[2], "transmitter") == 0) {
+		mode = TRASNMITTER;
+	} else {
+		mode = RECEIVER;
+	}
 
-  close(fd);
+	controller = newStateMachine();
 
-  return 0;
+	if(llopen(fd, mode) == TRUE) {
+		printf("Connection established!");
+	} else {
+		perror("connection failed!");
+
+		tcsetattr(fd,TCSANOW,&oldtio);
+		close(fd);
+		exit(-1);
+	}
+
+	sleep(1);
+	tcsetattr(fd,TCSANOW,&oldtio);
+
+	close(fd);
+
+	return 0;
 }
