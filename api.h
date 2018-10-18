@@ -15,12 +15,6 @@
 
 #define MAX_SIZE 8
 
-typedef struct applicationLayer {
-	int fileDescriptor;	/*Descritor correspondente à porta de série*/
-	int status;	/*TRANSMITTER | RECEIVER*/
-	struct termios oldPortConfiguration;
-} applicationLayer;
-
 typedef struct linkLayer {
 	char port[20];	/*Dispositivo /dev/ttySx, x = 0, 1*/
 	int baudRate;	/*Velocidade de transmissão*/
@@ -33,19 +27,15 @@ typedef struct linkLayer {
 	statemachine * controller;
 } linkLayer;
 
-//GETS
 
-applicationLayer * getAppLayer (int fd, int mode);
+
+//GETS
 
 linkLayer * getLinkLayer(unsigned short nTries, unsigned short timeout, char * port);
 
 unsigned short getFlag(linkLayer *a);
 
 unsigned short getNumberOFTries(linkLayer *a);
-
-int getFileDescriptor(applicationLayer *a);
-
-int getStatus(applicationLayer *a);
 
 char * getPort(linkLayer *ll);
 
@@ -61,12 +51,6 @@ char * getFrame(linkLayer *ll);
 
 //DEFINES
 
-void defineOldPortAttr(applicationLayer *a, struct termios b);
-
-void defineFileDescriptor(applicationLayer *a, int fd);
-
-void defineStatus(applicationLayer *a, int status);
-
 void definePort(linkLayer *a, char *port);
 
 void defineBaudRate(linkLayer *a, int baudRate);
@@ -79,14 +63,8 @@ void defineNumTransformations(linkLayer *a, unsigned short numTransformations);
 
 void defineFrame(linkLayer *a, char *frame);
 
-void anotherTry(linkLayer *a);
-
 //DESTRUCTORS
 
-// void destructFileDescriptor(applicationLayer *a);
-//
-// void destructStatus(applicationLayer *a);
-//
 // void destructPort(linkLayer *ll);
 //
 // void destructBaudRate(linkLayer *ll);

@@ -10,6 +10,7 @@
 #include <signal.h>
 #include "StateMachine.h"
 #include "api.h"
+#include "appLayer.h"
 
 #define BAUDRATE B38400
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
@@ -34,9 +35,9 @@ int flag=0, conta=1;
 
 void atende()
 {
-	printf("Trying  to connect %hd of %hd times.\n", getNumberOFTries(linkL) + 1, getnumTransformations(linkL));
+	printf("alarme # %d\n", conta);
 	flag=0;
-	anotherTry(linkL);
+	conta++;
 }
 
 void printUsage() {
@@ -167,7 +168,7 @@ int llopen(int path, int mode) {
 		sendSetMessage(path);
 		break;
 		case TRASNMITTER:
-		while(getNumberOFTries(linkL) < getnumTransformations(linkL)){
+		while(conta < 4){
 			if(flag == 0) {
 				sendSetMessage(path);
 				alarm(3);
@@ -178,7 +179,6 @@ int llopen(int path, int mode) {
 				alarm(0);
 			}
 		}
-		return FALSE;
 		break;
 		default:
 		return FALSE;
