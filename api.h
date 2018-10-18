@@ -15,13 +15,13 @@
 
 #define MAX_SIZE 8
 
-typedef struct applicationLayer{
+typedef struct applicationLayer {
 	int fileDescriptor;	/*Descritor correspondente à porta de série*/
 	int status;	/*TRANSMITTER | RECEIVER*/
 	struct termios oldPortConfiguration;
 } applicationLayer;
 
-typedef struct linkLayer{
+typedef struct linkLayer {
 	char port[20];	/*Dispositivo /dev/ttySx, x = 0, 1*/
 	int baudRate;	/*Velocidade de transmissão*/
 	unsigned short sequenceNumber;	/*Número de sequência da trama: 0, 1*/
@@ -32,8 +32,6 @@ typedef struct linkLayer{
 	char frame[MAX_SIZE];	/*Trama*/
 	statemachine * controller;
 } linkLayer;
-
-
 
 //GETS
 
@@ -80,6 +78,8 @@ void defineTimeout(linkLayer *a, unsigned short timeout);
 void defineNumTransformations(linkLayer *a, unsigned short numTransformations);
 
 void defineFrame(linkLayer *a, char *frame);
+
+void anotherTry(linkLayer *a);
 
 //DESTRUCTORS
 

@@ -34,9 +34,9 @@ int flag=0, conta=1;
 
 void atende()
 {
-	printf("alarme # %d\n", conta);
+	printf("Trying  to connect %hd of %hd times.\n", getNumberOFTries(linkL) + 1, getnumTransformations(linkL));
 	flag=0;
-	conta++;
+	anotherTry(linkL);
 }
 
 void printUsage() {
@@ -167,7 +167,7 @@ int llopen(int path, int mode) {
 		sendSetMessage(path);
 		break;
 		case TRASNMITTER:
-		while(conta < 4){
+		while(getNumberOFTries(linkL) < getnumTransformations(linkL)){
 			if(flag == 0) {
 				sendSetMessage(path);
 				alarm(3);
@@ -178,6 +178,7 @@ int llopen(int path, int mode) {
 				alarm(0);
 			}
 		}
+		return FALSE;
 		break;
 		default:
 		return FALSE;

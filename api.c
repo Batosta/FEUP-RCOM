@@ -99,6 +99,10 @@ char * getFrame(linkLayer *ll){
 	return ll->frame;
 }
 
+void anotherTry(linkLayer *a) {
+	a->tries++;
+}
+
 //DESTRUCTORS
 
 // void destructFileDescriptor(applicationLayer *a){
