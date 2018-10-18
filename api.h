@@ -27,8 +27,6 @@ typedef struct linkLayer {
 	statemachine * controller;
 } linkLayer;
 
-
-
 //GETS
 
 linkLayer * getLinkLayer(unsigned short nTries, unsigned short timeout, char * port);
@@ -50,6 +48,8 @@ unsigned short getnumTransformations(linkLayer *ll);
 char * getFrame(linkLayer *ll);
 
 //DEFINES
+
+void setFlag(linkLayer *a, unsigned short v);
 
 void anotherTry(linkLayer *a);
 

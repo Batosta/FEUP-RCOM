@@ -37,6 +37,8 @@ void defineFileDescriptor(applicationLayer *a, int fd);
 
 void defineStatus(applicationLayer *a, int status);
 
+void resetPortConfiguration(applicationLayer *a);
+
 
 //DESTRUCTORS
 // void destructFileDescriptor(applicationLayer *a);

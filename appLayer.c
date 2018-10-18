@@ -37,6 +37,13 @@ void defineStatus(applicationLayer *a, int status){
 	a->status = status;
 }
 
+void resetPortConfiguration(applicationLayer *a) {
+	if(tcsetattr(a->fileDescriptor,TCSANOW, &a->oldPortConfiguration) == -1) {
+		perror("signal tcsetattr");
+		exit(-1);
+	}
+}
+
 
 //DESTRUCTORS
 //void destructFileDescriptor(applicationLayer *a){

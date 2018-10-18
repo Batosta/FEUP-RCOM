@@ -25,18 +25,14 @@
 #define DISC 0x09
 #define UA 0x07
 
-struct termios oldtio;
-int path;
 statemachine * controller;
 linkLayer * linkL;
 applicationLayer * app;
 
-int flag=0, conta=1;
-
 void atende()
 {
 	printf("Trying  to connect %hd of %hd times.\n", getNumberOFTries(linkL) + 1, getnumTransformations(linkL));
-	flag=0;
+	setFlag(linkL, 0);
 	anotherTry(linkL);
 }
 
@@ -83,11 +79,15 @@ void analyseArgs(int argc, char** argv) {
 	app = getAppLayer(openSerialPort(argv[1]), getMode(argv[2]));
 }
 
-void getOldAttributes(int path, struct termios* oldtio) {
-	if ( tcgetattr(path ,oldtio) == -1) { /* save current port settings */
+void getOldAttributes(int path) {
+	struct termios* oldtio = (struct termios*) malloc(sizeof(struct termios));
+
+	if ( tcgetattr(path, oldtio) == -1) { /* save current port settings */
 		perror("tcgetattr");
 		exit(-1);
 	}
+
+	defineOldPortAttr(app, *oldtio);
 }
 
 void setNewAttributes(struct termios *newtio) {
@@ -103,7 +103,9 @@ void setNewAttributes(struct termios *newtio) {
 	newtio->c_cc[VMIN] = 0;   /* blocking read until 5 chars received */
 }
 
-void serialPortSetup(int path, struct termios *newtio) {
+void serialPortSetup(int path) {
+
+	struct termios *newtio = (struct termios*)malloc(sizeof(struct termios));
 
 	setNewAttributes(newtio);
 
@@ -167,10 +169,10 @@ int llopen(int path, int mode) {
 		break;
 		case TRASNMITTER:
 			while(getNumberOFTries(linkL) < getnumTransformations(linkL)){
-				if(flag == 0) {
+				if(getFlag(linkL) == 0) {
 					sendSetMessage(path);
 					alarm(getTimeout(linkL));
-					flag = 1;
+					setFlag(linkL, 1);
 				}
 				if(waitForData(path) == TRUE){
 					alarm(0);
@@ -182,17 +184,14 @@ int llopen(int path, int mode) {
 		default:
 			return FALSE;
 	}
-	
+
 	return TRUE;
 }
 
 void sigint_handler(int signo) {
 	printf("Ctrl+C received\n");
 
-	if(tcsetattr(path, TCSANOW, &oldtio) == -1) {
-		perror("signal tcsetattr");
-		exit(-1);
-	}
+	resetPortConfiguration(app);
 
 	exit(0);
 }
@@ -211,50 +210,38 @@ void configureLinkLayer(char * path) {
 	linkL = getLinkLayer(tries, tm, path);
 }
 
-int main(int argc, char** argv) {
-
-	int fd, mode;
-	struct termios newtio;
-
+void installSignalHandlers() {
 	signal(SIGINT, sigint_handler);
 	(void) signal(SIGALRM, atende);
+}
+
+int main(int argc, char** argv) {
+
+	installSignalHandlers();
 
 	analyseArgs(argc, argv);
 
-	fd = openSerialPort(argv[1]);
-
-	path = fd;
-
-	getOldAttributes(fd, &oldtio);
-
-	defineOldPortAttr(app, oldtio);
+	getOldAttributes(getFileDescriptor(app));
 
 	configureLinkLayer(argv[1]);
 
-	serialPortSetup(fd, &newtio);
-
-	if(strcmp(argv[2], "transmitter") == 0) {
-		mode = TRASNMITTER;
-	} else {
-		mode = RECEIVER;
-	}
+	serialPortSetup(getFileDescriptor(app));
 
 	controller = newStateMachine();
 
-	if(llopen(fd, mode) == TRUE) {
+	if(llopen(getFileDescriptor(app), getStatus(app)) == TRUE) {
 		printf("Connection established!");
 	} else {
 		perror("connection failed!");
-
-		tcsetattr(fd,TCSANOW,&oldtio);
-		close(fd);
+		resetPortConfiguration(app);
+		close(getFileDescriptor(app));
 		exit(-1);
 	}
 
 	sleep(1);
-	tcsetattr(fd,TCSANOW,&oldtio);
+	resetPortConfiguration(app);
 
-	close(fd);
+	close(getFileDescriptor(app));
 
 	return 0;
 }

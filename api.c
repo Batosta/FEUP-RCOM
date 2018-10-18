@@ -32,6 +32,10 @@ void anotherTry(linkLayer *a) {
 	a->tries++;
 }
 
+void setFlag(linkLayer *a, unsigned short v) {
+	a->flag = v;
+}
+
 
 //GETS
 linkLayer * getLinkLayer(unsigned short nTries, unsigned short timeout, char * port) {
