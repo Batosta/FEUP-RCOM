@@ -65,6 +65,8 @@ void defineNumTransformations(linkLayer *a, unsigned short numTransformations);
 
 void defineFrame(linkLayer *a, char *frame);
 
+void initializeStateMachine(linkLayer *a);
+
 //DESTRUCTORS
 
 // void destructPort(linkLayer *ll);

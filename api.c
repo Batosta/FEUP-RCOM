@@ -80,6 +80,10 @@ char * getFrame(linkLayer *ll){
 	return ll->frame;
 }
 
+void initializeStateMachine(linkLayer *a) {
+	a->controller = newStateMachine();
+}
+
 //DESTRUCTORS
 
 // void destructPort(linkLayer *ll){

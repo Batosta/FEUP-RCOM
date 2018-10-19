@@ -25,7 +25,6 @@
 #define DISC 0x09
 #define UA 0x07
 
-statemachine * controller;
 linkLayer * linkL;
 applicationLayer * app;
 
@@ -120,7 +119,7 @@ void serialPortSetup(int path) {
 int waitForData(int path) {
 	unsigned char buf[1];
 
-	if(getMachineState(controller) == FINAL_STATE) {
+	if(getMachineState(linkL->controller) == FINAL_STATE) {
 		return TRUE;
 	}
 
@@ -128,9 +127,9 @@ int waitForData(int path) {
 
 	read(path,buf,1);
 
-	interpretSignal(controller, buf[0]);
+	interpretSignal(linkL->controller, buf[0]);
 
-	if(getMachineState(controller) == FINAL_STATE) {
+	if(getMachineState(linkL->controller) == FINAL_STATE) {
 		return TRUE;
 	} else {
 		return FALSE;
@@ -160,6 +159,8 @@ int sendSetMessage(int path) {
 }
 
 int llopen(int path, int mode) {
+
+	initializeStateMachine(linkL);
 
 	switch(mode) {
 		case RECEIVER:
@@ -227,12 +228,10 @@ int main(int argc, char** argv) {
 
 	serialPortSetup(getFileDescriptor(app));
 
-	controller = newStateMachine();
-
 	if(llopen(getFileDescriptor(app), getStatus(app)) == TRUE) {
-		printf("Connection established!");
+		printf("Connection established!\n");
 	} else {
-		perror("connection failed!");
+		perror("connection failed!\n");
 		resetPortConfiguration(app);
 		close(getFileDescriptor(app));
 		exit(-1);
