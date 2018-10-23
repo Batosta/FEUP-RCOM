@@ -189,6 +189,85 @@ int llopen(int path, int mode) {
 	return TRUE;
 }
 
+int llwrite(int fd, char* buffer, int length){
+/*	
+	char *frame;
+	frame[0] = FLAG;
+	frame[1] = AE;
+	frame[2] = 0;
+	frame[3] = frame[1]^frame[2];
+
+	char bcc2 = buffer[0];
+	
+	int i = 4, j = 0; 
+	for(; j < length; i++, j++){
+		frame[i] = buffer[j];
+		
+		if(j != 0)
+			bcc2 = bcc2^buffer[j];
+	}
+
+	frame[length+4] = bcc2;
+	frame[length+5] = FLAG;
+
+
+	int numBytes = write(fd, frame, length+6);
+	if(numBytes == -1){
+		printf("Error writting on llwrite\n");
+	}
+
+	return numBytes;
+*/
+}
+//Função responsável por ler o ficheiro a mandar e enviar por llwrite os pacotes de dados
+int readFile(char *fileName){
+/*
+	int fd = open(fileName, O_RDONLY);
+	if(fd == -1)
+		printf("Unable to open file %s", filename);
+
+	//buffer vai guardar o ficheiro
+	char *buffer;
+	int i, length, r = 0;
+	
+	while((r = read(fd, buffer[i*1024], 1024)) > 0){
+		i++;
+		length += r;
+	}
+	//Aqui constrói pacotes de dados
+	
+	char* control;
+	control[0] = 2;
+
+	control[1] = 1;
+	control[2] = strlen(fileName);
+	for(i = 3, j = 0; i < control[2]; i++, j++){
+		control[i] = fileName[j]; 
+	}
+
+	control[i+1] = 0;
+	control[i+2] = sizeof(int);
+	control[i+3] = length;
+
+	int send = llwrite(fd, control, i+3);
+	int k = 0;
+	
+	while(1){
+		char pacote[128];
+		pacote[0] = 1;
+		pacote[1] = 8; 
+		pacote[2] = 124/256;
+		pacote[3] = 124%256;
+		
+		k += memcpy( &pacote[4], &buffer[k], 124);
+		
+		llwrite(fd, pacote, 128);
+	}
+
+	return 0;
+*/
+}
+
 void sigint_handler(int signo) {
 	printf("Ctrl+C received\n");
 
