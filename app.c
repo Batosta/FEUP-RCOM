@@ -258,6 +258,7 @@ void sendFile() {
 	//Depois comecar a enviar tramas dos bytes lidos no FICHEIRO
 	//enviar pacote de controlo com END
 }
+
 // Cria uma trama de informacao
 int llwrite(int fd, unsigned char* buffer, int length){
 
@@ -383,6 +384,24 @@ int readFile(char *fileName, int Nbytes){
 		llwrite(fd, controloStart, 128);
 	}
 
+	while(1){
+		unsigned char controloEnd[128];
+		controloEnd[0] = END_C;
+		controloEnd[1] = 9;
+		controloEnd[2] = 124/256;
+		controloEnd[3] = 124%256
+
+		memcpy(&controlEnd[4], &buffer[k], 124);
+
+		llwrite(fd, controlEnd, 128);
+
+	}
+
+	//
+	return 0;
+}
+
+
 void sendSupervisionFrame(unsigned char controlField, int fd){
 
 	unsigned char buffer[5];
@@ -429,6 +448,11 @@ int readDataPackets(){
 		controloEnd[2] = 124/256;
 		controloEnd[3] = 124%256
 
+
+		memcpy(&controlEnd[4], &buffer[k], 124);
+
+		llwrite(fd, controlEnd, 128);
+
 		int size;
 		if ((size = llread(getFileDescriptor(app), buffer)) == -1)
 			sendSupervisionFrame('REJ', getFileDescriptor(app));
@@ -443,45 +467,58 @@ int readDataPackets(){
 			int k = 256 * buffer[2] + buffer[3];
 
 			int i;
-			for(i = 0; i < 128; i++){
+			for(i = 0; i < k; i++){
 
 				dataPacket[i] = buffer[i];
+				write(getFileDescriptor(app), dataPacket[i], 1);
 			}
-
-			// passar dataPacket para o ficheiro filename agora
-			// open do ficheiro filename (em baixo) e dar write para la do dataPacket
 
 		} else if(buffer[0] == 2 || buffer[0] == 3){
 
 			int i;
+			int k;
 			unsigned char l = 0;
+			unsigned char t = 0;
 			for(i = 0; i < 2; i++){
 
-				unsigned char t = buffer[1 + i*(1+1+l)];
-				
-				if(t == 1){
-					l = buffer[1 + i*(1+1+l) + 1];
+				l = buffer[1 + i*(1+1+l) + 1];
+				t = buffer[1 + i*(1+1+l)];
+
+				if(t == 0){
+
+					fileSize = 0x00;
+					for(k = 0; k < l, k++){
+						
+						// Começa no ultimo byte e 
+						fileSize |= buffer[1 + i*(1+1+l) + 1 - k] << 8*k;
+					}
+
+				} else if(t == 1){
+
 					filename = malloc(l + 1);
-					int k;
 					for(k = 0; k < l; k++){
 	
-						filename[k] = buffer[1 + i*(1+1+l) + 2 + k];
+						fileName[k] = buffer[1 + i*(1+1+l) + 2 + k];
 					}
 					filename[k] = 0;
 
-					//fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0777);
-					
-				} else if(t == 0){
-
-					// tamanho do ficheiro
+					setTargetDescriptor(app, open(fileName, O_WRONLY | O_CREAT | O_TRUNC, 0777));
+				
 				} else
 					return -1;
 			}
 
-			if(buffer[0] == 3)
+			CFlag = (CFlag + 1) % 2;
+			sendSupervisionFrame('RR', getFileDescriptor(app));
+
+			if(buffer[0] == 3){
 				break;
+			}
 		}
 	}
+
+	//
+	return 0;
 }
 
 // Recebe a trama e checka se está bem
@@ -603,6 +640,7 @@ int readDataPackets(){
 	return 0;
 }
 
+
 int main(int argc, char** argv) {
 
 	installSignalHandlers();
@@ -619,6 +657,9 @@ int main(int argc, char** argv) {
 
 	if(getStatus(app) == TRASNMITTER) {
 		sendFile();
+
+	if(getStatus(app) == TRANSMITTER) {
+
 	}
 	else if(getStatus(app) == RECEIVER){
 
