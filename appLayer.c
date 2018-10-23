@@ -33,6 +33,10 @@ struct termios getOldPortConfiguration(applicationLayer *a){
 
 
 //DEFINES
+void defineFileName(applicationLayer *a, char * name) {
+	a->fileName = name;
+}
+
 void defineOldPortAttr(applicationLayer *a, struct termios b) {
 	a->oldPortConfiguration = b;
 }

@@ -18,6 +18,7 @@ typedef struct applicationLayer {
 	int status;	/*TRANSMITTER | RECEIVER*/
 	struct termios oldPortConfiguration;
 	int targetFileDescriptor;
+	char * fileName;
 } applicationLayer;
 
 
@@ -34,6 +35,8 @@ int getTargetDescriptor(applicationLayer *a);
 
 
 //DEFINES
+void defineFileName(applicationLayer *a, char * name);
+
 void setTargetDescriptor(applicationLayer *a, int fd);
 
 void defineOldPortAttr(applicationLayer *a, struct termios b);

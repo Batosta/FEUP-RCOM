@@ -242,14 +242,20 @@ void sendFile() {
 
 	fstat(getTargetDescriptor(app), &st);
 
+	mode_t sizeOfFile = st.st_size;
+
+	printf("size: %d\n", sizeOfFile);
+
 	//Obter tamanho, nome do ficheiro e permissões e enviar
 	//Depois comecar a enviar tramas dos bytes lidos no FICHEIRO
 	//enviar pacote de controlo com END
 }
 
-int llwrite(int fd, char* buffer, int length){
-	
-	char *frame;
+int llwrite(int fd, unsigned char* buffer, int length){
+
+	unsigned char *frame;
+
+	frame = (unsigned char *) malloc(length + 6);
 	frame[0] = FLAG;
 	frame[1] = AE;
 	frame[2] = 0;
@@ -273,22 +279,27 @@ int llwrite(int fd, char* buffer, int length){
 }
 
 //Função responsável por ler o ficheiro a mandar e enviar por llwrite os pacotes de dados
-int readFile(char *fileName){
+int readFile(char *fileName, int Nbytes){
 
 	int fd = open(fileName, O_RDONLY);
+	int j;
 	if(fd == -1)
-		printf("Unable to open file %s", filename);
+		printf("Unable to open file %s", fileName);
 	//buffer vai guardar o ficheiro
-	char *buffer;
+	unsigned char *buffer;
 	int i, length, r = 0;
 
-	while((r = read(fd, buffer[i*1024], 1024)) > 0){
-		i++;
-		length += r;
-	}
+	//ir buscar o tamanho do ficheiro
+
+	//buffer = (unsigned char *) malloc()
+
+	// while((r = read(fd, buffer[i*1024], 1024)) > 0){
+	// 	i++;
+	// 	length += r;
+	// }
 	//Aqui constrói pacotes de dados
 
-	char* control;
+	unsigned char* control = (char *) malloc(strlen(fileName) + 6);
 	control[0] = 2;
 	control[1] = 1;
 	control[2] = strlen(fileName);
@@ -301,84 +312,24 @@ int readFile(char *fileName){
 	int send = llwrite(fd, control, i+3);
 	int k = 0;
 
+	buffer = (char *) malloc(sizeof(control));
+
 	while(1){
-		char pacote[128];
+		unsigned char pacote[128];
 		pacote[0] = 1;
 		pacote[1] = 8;
 		pacote[2] = 124/256;
 		pacote[3] = 124%256;
 
-		k += memcpy( &pacote[4], &buffer[k], 124);
+		memcpy( &pacote[4], &buffer[k], 124);
 
 		llwrite(fd, pacote, 128);
 	}
 	return 0;
 }
 
-// Checka se o pacote de dados está bem
-// -1 = wrong
-int readDataPackets(){
-
-	unsigned char buffer[128];
-	unsigned char dataPacket[128];
-	char * filename;
-	int fd;
-
-	while(1){
-
-		llread(getFileDescriptor(app), buffer);
-
-		if(buffer[0] == 1){
-		
-			if(buffer[1] == 0xFF)
-				return -1;
-
-			int k = 256 * buffer[2] + buffer[3];
-
-			int i;
-			for(i = 0; i < 128; i++){
-
-				dataPacket[i] = buffer[i];
-			}
-
-			// passar dataPacket para o ficheiro filename agora
-			// open do ficheiro filename (em baixo) e dar write para la do dataPacket
-
-		} else if(buffer[0] == 2 || buffer[0] == 3){
-
-			int i;
-			unsigned char l = 0;
-			for(i = 0; i < 2; i++){
-
-				unsigned char t = buffer[1 + i*(1+1+l)];
-				
-				if(t == 1){
-					l = buffer[1 + i*(1+1+l) + 1];
-					filename = malloc(l + 1);
-					int k;
-					for(k = 0; k < l; k++){
-	
-						filename[k] = buffer[1 + i*(1+1+l) + 2 + k];
-					}
-					filename[k] = 0;
-
-					//fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0777);
-					
-				} else if(t == 0){
-
-					// tamanho do ficheiro
-				} else
-					return -1;
-			}
-
-			if(buffer[0] == 3)
-				break;
-		}
-	}
-}
-
 // Recebe a trama e checka se está bem
-int llread(int fd, char * buffer){
+int llread(int fd, unsigned char * buffer){
 
 	// Trama
 	unsigned char array[134];	// 128 bytes do pacote de dados + 6 bytes da trama
@@ -389,13 +340,13 @@ int llread(int fd, char * buffer){
 
 		read(fd, array, 1);
 
-		if(i != 0 && array == FLAG)
-			break;	
+		if(i != 0 && array[0] == FLAG)
+			break;
 	}
 
 	if(i == 134)
 		return -1;
-	
+
 	// First Flag
 	if(array[0] != FLAG)
 		return -1;
@@ -416,7 +367,7 @@ int llread(int fd, char * buffer){
 	unsigned char bcc2 = array[4];
 	int k;
 	for(k = 5; k < i-2; k++){
-	
+
 		bcc2 ^= array[k];
 		buffer[k-5] = array[k];
 	}
@@ -433,6 +384,69 @@ int llread(int fd, char * buffer){
 
 	return i - 6;
 }
+
+// Checka se o pacote de dados está bem
+// -1 = wrong
+int readDataPackets(){
+
+	unsigned char buffer[128];
+	unsigned char dataPacket[128];
+	char * filename;
+
+	while(1){
+
+		llread(getFileDescriptor(app), buffer);
+
+		if(buffer[0] == 1){
+
+			if(buffer[1] == 0xFF)
+				return -1;
+
+			int k = 256 * buffer[2] + buffer[3];
+
+			int i;
+			for(i = 0; i < k; i++) {
+				dataPacket[i] = buffer[i];
+			}
+
+			// passar dataPacket para o ficheiro filename agora
+			// open do ficheiro filename (em baixo) e dar write para la do dataPacket
+
+		} else if(buffer[0] == 2 || buffer[0] == 3){
+
+			int i;
+			unsigned char l = 0;
+			for(i = 0; i < 2; i++){
+
+				unsigned char t = buffer[1 + i*(1+1+l)];
+
+				if(t == 1){
+					l = buffer[1 + i*(1+1+l) + 1];
+					filename = malloc(l + 1);
+					int k;
+					for(k = 0; k < l; k++){
+
+						filename[k] = buffer[1 + i*(1+1+l) + 2 + k];
+					}
+					filename[k] = 0;
+
+					//fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0777);
+
+				} else if(t == 0){
+
+					// tamanho do ficheiro
+				} else
+					return -1;
+			}
+
+			if(buffer[0] == 3)
+				break;
+		}
+	}
+
+	return 0;
+}
+
 int main(int argc, char** argv) {
 
 	installSignalHandlers();
@@ -448,7 +462,7 @@ int main(int argc, char** argv) {
 	createConnection();
 
 	if(getStatus(app) == TRASNMITTER) {
-
+		sendFile();
 	}
 	else if(getStatus(app) == RECEIVER){
 
