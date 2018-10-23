@@ -49,7 +49,7 @@ int getMode(char * mode) {
 	}
 }
 
-int openSerialPort(char* path) {
+int openFile(char* path) {
 	int f = open(path, O_RDWR | O_NOCTTY );
 
 	if(f < 0) {
@@ -75,7 +75,7 @@ void analyseArgs(int argc, char** argv) {
 		printUsage();
 	}
 
-	app = getAppLayer(openSerialPort(argv[1]), getMode(argv[2]));
+	app = getAppLayer(openFile(argv[1]), getMode(argv[2]));
 }
 
 void getOldAttributes(int path) {
@@ -189,85 +189,6 @@ int llopen(int path, int mode) {
 	return TRUE;
 }
 
-int llwrite(int fd, char* buffer, int length){
-/*	
-	char *frame;
-	frame[0] = FLAG;
-	frame[1] = AE;
-	frame[2] = 0;
-	frame[3] = frame[1]^frame[2];
-
-	char bcc2 = buffer[0];
-	
-	int i = 4, j = 0; 
-	for(; j < length; i++, j++){
-		frame[i] = buffer[j];
-		
-		if(j != 0)
-			bcc2 = bcc2^buffer[j];
-	}
-
-	frame[length+4] = bcc2;
-	frame[length+5] = FLAG;
-
-
-	int numBytes = write(fd, frame, length+6);
-	if(numBytes == -1){
-		printf("Error writting on llwrite\n");
-	}
-
-	return numBytes;
-*/
-}
-//Função responsável por ler o ficheiro a mandar e enviar por llwrite os pacotes de dados
-int readFile(char *fileName){
-/*
-	int fd = open(fileName, O_RDONLY);
-	if(fd == -1)
-		printf("Unable to open file %s", filename);
-
-	//buffer vai guardar o ficheiro
-	char *buffer;
-	int i, length, r = 0;
-	
-	while((r = read(fd, buffer[i*1024], 1024)) > 0){
-		i++;
-		length += r;
-	}
-	//Aqui constrói pacotes de dados
-	
-	char* control;
-	control[0] = 2;
-
-	control[1] = 1;
-	control[2] = strlen(fileName);
-	for(i = 3, j = 0; i < control[2]; i++, j++){
-		control[i] = fileName[j]; 
-	}
-
-	control[i+1] = 0;
-	control[i+2] = sizeof(int);
-	control[i+3] = length;
-
-	int send = llwrite(fd, control, i+3);
-	int k = 0;
-	
-	while(1){
-		char pacote[128];
-		pacote[0] = 1;
-		pacote[1] = 8; 
-		pacote[2] = 124/256;
-		pacote[3] = 124%256;
-		
-		k += memcpy( &pacote[4], &buffer[k], 124);
-		
-		llwrite(fd, pacote, 128);
-	}
-
-	return 0;
-*/
-}
-
 void sigint_handler(int signo) {
 	printf("Ctrl+C received\n");
 
@@ -278,6 +199,8 @@ void sigint_handler(int signo) {
 
 void configureLinkLayer(char * path) {
 	unsigned short tm, tries;
+	int fd;
+	char filePath[256];
 
 	printf("Insert timeout value (s): ");
 
@@ -288,11 +211,110 @@ void configureLinkLayer(char * path) {
 	scanf("%hd", &tries);
 
 	linkL = getLinkLayer(tries, tm, path);
+
+	if(getStatus(app) == TRASNMITTER) {
+		//LER NOME DO FICHEIRO e carregar fd para appLayer
+		printf("Insert file path: ");
+		scanf("%s", filePath);
+		fd = openFile(filePath);
+		setTargetDescriptor(app, fd);
+	}
 }
 
 void installSignalHandlers() {
 	signal(SIGINT, sigint_handler);
 	(void) signal(SIGALRM, atende);
+}
+
+void createConnection() {
+	if(llopen(getFileDescriptor(app), getStatus(app)) == TRUE) {
+		printf("Connection established!\n");
+	} else {
+		perror("connection failed!\n");
+		resetPortConfiguration(app);
+		close(getFileDescriptor(app));
+		exit(-1);
+	}
+}
+
+void sendFile() {
+	struct stat st;
+
+	fstat(getTargetDescriptor(app), &st);
+
+	//Obter tamanho, nome do ficheiro e permissões e enviar
+	//Depois comecar a enviar tramas dos bytes lidos no FICHEIRO
+	//enviar pacote de controlo com END
+}
+
+int llwrite(int fd, char* buffer, int length){
+/*
+	char *frame;
+	frame[0] = FLAG;
+	frame[1] = AE;
+	frame[2] = 0;
+	frame[3] = frame[1]^frame[2];
+	char bcc2 = buffer[0];
+
+	int i = 4, j = 0;
+	for(; j < length; i++, j++){
+		frame[i] = buffer[j];
+
+		if(j != 0)
+			bcc2 = bcc2^buffer[j];
+	}
+	frame[length+4] = bcc2;
+	frame[length+5] = FLAG;
+	int numBytes = write(fd, frame, length+6);
+	if(numBytes == -1){
+		printf("Error writting on llwrite\n");
+	}
+	return numBytes;
+*/
+}
+
+//Função responsável por ler o ficheiro a mandar e enviar por llwrite os pacotes de dados
+int readFile(char *fileName){
+/*
+	int fd = open(fileName, O_RDONLY);
+	if(fd == -1)
+		printf("Unable to open file %s", filename);
+	//buffer vai guardar o ficheiro
+	char *buffer;
+	int i, length, r = 0;
+
+	while((r = read(fd, buffer[i*1024], 1024)) > 0){
+		i++;
+		length += r;
+	}
+	//Aqui constrói pacotes de dados
+
+	char* control;
+	control[0] = 2;
+	control[1] = 1;
+	control[2] = strlen(fileName);
+	for(i = 3, j = 0; i < control[2]; i++, j++){
+		control[i] = fileName[j];
+	}
+	control[i+1] = 0;
+	control[i+2] = sizeof(int);
+	control[i+3] = length;
+	int send = llwrite(fd, control, i+3);
+	int k = 0;
+
+	while(1){
+		char pacote[128];
+		pacote[0] = 1;
+		pacote[1] = 8;
+		pacote[2] = 124/256;
+		pacote[3] = 124%256;
+
+		k += memcpy( &pacote[4], &buffer[k], 124);
+
+		llwrite(fd, pacote, 128);
+	}
+	return 0;
+*/
 }
 
 int main(int argc, char** argv) {
@@ -307,13 +329,16 @@ int main(int argc, char** argv) {
 
 	serialPortSetup(getFileDescriptor(app));
 
-	if(llopen(getFileDescriptor(app), getStatus(app)) == TRUE) {
-		printf("Connection established!\n");
-	} else {
-		perror("connection failed!\n");
-		resetPortConfiguration(app);
-		close(getFileDescriptor(app));
-		exit(-1);
+	createConnection();
+
+	if(getStatus(app) == TRASNMITTER) {
+
+	}
+	else if(getStatus(app) == RECEIVER){
+
+	}
+	else {
+		perror("Wrong mode!\n");
 	}
 
 	sleep(1);

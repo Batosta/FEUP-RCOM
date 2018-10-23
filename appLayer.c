@@ -11,6 +11,14 @@ applicationLayer * getAppLayer (int fd, int mode) {
 	return a;
 }
 
+int getTargetDescriptor(applicationLayer *a) {
+	return a->targetFileDescriptor;
+}
+
+void setTargetDescriptor(applicationLayer *a, int fd) {
+	a->targetFileDescriptor = fd;
+}
+
 int getFileDescriptor(applicationLayer *a){
 	return a->fileDescriptor;
 }

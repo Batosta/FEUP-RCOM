@@ -45,6 +45,8 @@ linkLayer * getLinkLayer(unsigned short nTries, unsigned short timeout, char * p
 
 	a->numTransformations = nTries;
 
+	a->tries = 1;
+
 	return a;
 }
 
