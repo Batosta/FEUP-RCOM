@@ -25,6 +25,9 @@
 #define DISC 0x09
 #define UA 0x07
 
+#define START_C 2
+#define END_C 3
+
 linkLayer * linkL;
 applicationLayer * app;
 
@@ -250,18 +253,27 @@ void sendFile() {
 	//Depois comecar a enviar tramas dos bytes lidos no FICHEIRO
 	//enviar pacote de controlo com END
 }
-
+// Cria uma trama de informacao
 int llwrite(int fd, unsigned char* buffer, int length){
 
+	//Trama de informacao
 	unsigned char *frame;
 
 	frame = (unsigned char *) malloc(length + 6);
 	frame[0] = FLAG;
 	frame[1] = AE;
-	frame[2] = 0;
+	
+	if(CFlag == 0)
+		frame[2] = 0x00;
+	else
+		frame[2] = 0x40;
+
 	frame[3] = frame[1]^frame[2];
+
+	// buffer[0] = primeiro byte dos dados
 	char bcc2 = buffer[0];
 
+	//create bcc2
 	int i = 4, j = 0;
 	for(; j < length; i++, j++){
 		frame[i] = buffer[j];
@@ -270,15 +282,52 @@ int llwrite(int fd, unsigned char* buffer, int length){
 			bcc2 = bcc2^buffer[j];
 	}
 	frame[length+4] = bcc2;
+	//finished creating bcc2
+
 	frame[length+5] = FLAG;
+	// Checkpoint: frame = trama de informacao
+
+//É suposto por isto num ciclo para estar sempre a tentar
 	int numBytes = write(fd, frame, length+6);
+
 	if(numBytes == -1){
 		printf("Error writting on llwrite\n");
 	}
+
 	return numBytes;
 }
 
+int receiveSupervisionFrame(int fd){
+
+	unsigned char *buffer;
+	buffer = (unsigned char *) malloc(sizeof(char)*5);
+
+	int r;
+	r = read(fd, buffer, sizeof(char)*5);
+	if(r < 0)
+		printf("Erro na Trama de Supervisao");
+	
+	if(buffer[0] != FLAG)
+		return -1;
+
+	if(buffer[1] != AE)
+		return -1;
+
+	if(buffer[3] != (buffer[1]^buffer[2]))
+		return -1;
+
+	if(buffer[4] != FLAG)
+		return -1;
+
+	if((CFlag == 0 && buffer[2] == 'RR0') || (CFlag == 1 && buffer[2] == 'RR1')){
+		CFlag = (CFlag + 1) % 2;
+		return 1;
+	} else
+		return -1;
+}
+
 //Função responsável por ler o ficheiro a mandar e enviar por llwrite os pacotes de dados
+//Nível aplicação
 int readFile(char *fileName, int Nbytes){
 
 	int fd = open(fileName, O_RDONLY);
@@ -309,22 +358,40 @@ int readFile(char *fileName, int Nbytes){
 	control[i+1] = 0;
 	control[i+2] = sizeof(int);
 	control[i+3] = length;
+
+
 	int send = llwrite(fd, control, i+3);
 	int k = 0;
 
 	buffer = (char *) malloc(sizeof(control));
 
+	//
 	while(1){
-		unsigned char pacote[128];
-		pacote[0] = 1;
-		pacote[1] = 8;
-		pacote[2] = 124/256;
-		pacote[3] = 124%256;
+		unsigned char controloStart[128];
+		controloStart[0] = START_C;
+		controloStart[1] = 8;
+		controloStart[2] = 124/256;
+		controloStart[3] = 124%256;
 
-		memcpy( &pacote[4], &buffer[k], 124);
+		memcpy( &controloStart[4], &buffer[k], 124);
 
-		llwrite(fd, pacote, 128);
+		llwrite(fd, controloStart, 128);
 	}
+
+	while(1){
+		unsigned char controloEnd[128];
+		controloEnd[0] = END_C;
+		controloEnd[1] = 9;
+		controloEnd[2] = 124/256;
+		controloEnd[3] = 124%256
+
+		memcpy(&controlEnd[4], &buffer[k], 124);
+
+		llwrite(fd, controlEnd, 128);
+
+	}
+
+	//
 	return 0;
 }
 
