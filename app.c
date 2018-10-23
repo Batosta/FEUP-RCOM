@@ -16,20 +16,25 @@
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
 #define FALSE 0
 #define TRUE 1
-#define TRASNMITTER 1
+#define TRANSMITTER 1
 #define RECEIVER 0
 #define FLAG 0x7E
 #define AE 0x03
 #define AR 0x01
 #define SET 0x03
-#define DISC 0x09
+#define DISC 0x0B
 #define UA 0x07
+#define RR0 0x05
+#define RR1 0x85
+#define REJ0 0x01
+#define REJ1 0x81
 
 #define START_C 2
 #define END_C 3
 
 linkLayer * linkL;
 applicationLayer * app;
+int CFlag = 0;
 
 void atende()
 {
@@ -45,7 +50,7 @@ void printUsage() {
 
 int getMode(char * mode) {
 	if(strcmp(mode, "transmitter") == 0) {
-		return TRASNMITTER;
+		return TRANSMITTER;
 	}
 	else {
 		return RECEIVER;
@@ -171,7 +176,7 @@ int llopen(int path, int mode) {
 			printf("Data received \n");
 			sendSetMessage(path);
 		break;
-		case TRASNMITTER:
+		case TRANSMITTER:
 			while(getNumberOFTries(linkL) < getnumTransformations(linkL)){
 				if(getFlag(linkL) == 0) {
 					sendSetMessage(path);
@@ -215,7 +220,7 @@ void configureLinkLayer(char * path) {
 
 	linkL = getLinkLayer(tries, tm, path);
 
-	if(getStatus(app) == TRASNMITTER) {
+	if(getStatus(app) == TRANSMITTER) {
 		//LER NOME DO FICHEIRO e carregar fd para appLayer
 		printf("Insert file path: ");
 		scanf("%s", filePath);
@@ -378,6 +383,45 @@ int readFile(char *fileName, int Nbytes){
 		llwrite(fd, controloStart, 128);
 	}
 
+void sendSupervisionFrame(unsigned char controlField, int fd){
+
+	unsigned char buffer[5];
+
+	// Flag
+	buffer[0] = FLAG;
+
+	// A
+	if(getStatus(app) == TRANSMITTER)
+		buffer[1] = AE;
+	else
+		buffer[1] = AR;
+
+	// C
+	if(controlField == 'RR' && CFlag == 0)
+		buffer[2] = RR0;
+	else if(controlField == 'RR' && CFlag == 1)
+		buffer[2] = RR1;
+	else if(controlField == 'REJ' && CFlag == 0)
+		buffer[2] = REJ0;
+	else if(controlField == 'REJ' && CFlag == 1)
+		buffer[2] = REJ1;
+
+	buffer[3] = buffer[0] ^ buffer[1];
+
+	buffer[4] = FLAG;
+
+	write(fd, buffer, 5);
+}
+
+// Checka se o pacote de dados está bem
+int readDataPackets(){
+
+	unsigned char buffer[128];
+	unsigned char dataPacket[128];
+	char * fileName;
+	unsigned char fileSize = 0;
+	int fd;
+
 	while(1){
 		unsigned char controloEnd[128];
 		controloEnd[0] = END_C;
@@ -385,14 +429,59 @@ int readFile(char *fileName, int Nbytes){
 		controloEnd[2] = 124/256;
 		controloEnd[3] = 124%256
 
-		memcpy(&controlEnd[4], &buffer[k], 124);
+		int size;
+		if ((size = llread(getFileDescriptor(app), buffer)) == -1)
+			sendSupervisionFrame('REJ', getFileDescriptor(app));
+		
 
-		llwrite(fd, controlEnd, 128);
+		if(buffer[0] == 1){
+		
+			/*if(buffer[1] == 0xFF)
+				return -1;*/
 
+			// Numero de bytes do campo de dados
+			int k = 256 * buffer[2] + buffer[3];
+
+			int i;
+			for(i = 0; i < 128; i++){
+
+				dataPacket[i] = buffer[i];
+			}
+
+			// passar dataPacket para o ficheiro filename agora
+			// open do ficheiro filename (em baixo) e dar write para la do dataPacket
+
+		} else if(buffer[0] == 2 || buffer[0] == 3){
+
+			int i;
+			unsigned char l = 0;
+			for(i = 0; i < 2; i++){
+
+				unsigned char t = buffer[1 + i*(1+1+l)];
+				
+				if(t == 1){
+					l = buffer[1 + i*(1+1+l) + 1];
+					filename = malloc(l + 1);
+					int k;
+					for(k = 0; k < l; k++){
+	
+						filename[k] = buffer[1 + i*(1+1+l) + 2 + k];
+					}
+					filename[k] = 0;
+
+					//fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0777);
+					
+				} else if(t == 0){
+
+					// tamanho do ficheiro
+				} else
+					return -1;
+			}
+
+			if(buffer[0] == 3)
+				break;
+		}
 	}
-
-	//
-	return 0;
 }
 
 // Recebe a trama e checka se está bem
