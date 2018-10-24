@@ -1,5 +1,5 @@
-#ifndef API
-#define API
+#ifndef DATALAYER
+#define DATALAYER
 
 #include <sys/types.h>
 #include <sys/stat.h>

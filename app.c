@@ -283,23 +283,17 @@ int llwrite(int fd, unsigned char* buffer, int length){
 
 	//Trama de informacao
 	unsigned char *frame;
+	int superVisionFrame;
+	int frameLength;
 
 	frame = (unsigned char *) malloc(length + 6);
-	// FLAG
 	frame[0] = FLAG;
-	// A
 	frame[1] = AE;
-	
-	// C
 	if(CFlag == 0)
 		frame[2] = 0x00;
 	else
 		frame[2] = 0x40;
-
-	// BBC1
 	frame[3] = frame[1]^frame[2];
-
-	// buffer[0] = primeiro byte dos dados
 	char bcc2 = buffer[0];
 
 	// BBC2
@@ -315,21 +309,28 @@ int llwrite(int fd, unsigned char* buffer, int length){
 
 	frame[length+5] = FLAG;
 	// Checkpoint: frame = trama de informacao
-
-
+	
+//while(tentativas < numero maximo de tentativas){
+	int frameLength = length + 6; //length dos dados mais F,A,C,BCC1,BCC2,F
 	if(write_frame(fd, frame, length+6) == -1){
 		printf("Error writting frame\n");
 		return -1;
 	}
 
-	if(receiveSupervisionFrame(fd) == 0){
-		attempts = 0; //Ainda nao estamos a utilizar mas se correr tudo bem dá reset
+	superVisionFrame = receiveSupervisionFrame(fd);
+	if(superVisionFrame != 0){
+		attempts = 0;
 		alarm(0);
-		
+		if(superVisionFrame == 1) //verifica se o frame é RR
+			return frameLength;
 	}
 
+	alarm(0);
+	
+//}
 
-	return numBytes;
+	//printf("Connection timed out\n");
+	return -1;
 }
 
 // Error/Rej: -1
