@@ -285,20 +285,24 @@ int llwrite(int fd, unsigned char* buffer, int length){
 	unsigned char *frame;
 
 	frame = (unsigned char *) malloc(length + 6);
+	// FLAG
 	frame[0] = FLAG;
+	// A
 	frame[1] = AE;
 	
+	// C
 	if(CFlag == 0)
 		frame[2] = 0x00;
 	else
 		frame[2] = 0x40;
 
+	// BBC1
 	frame[3] = frame[1]^frame[2];
 
 	// buffer[0] = primeiro byte dos dados
 	char bcc2 = buffer[0];
 
-	//create bcc2
+	// BBC2
 	int i = 4, j = 0;
 	for(; j < length; i++, j++){
 		frame[i] = buffer[j];
@@ -328,6 +332,11 @@ int llwrite(int fd, unsigned char* buffer, int length){
 	return numBytes;
 }
 
+// Error/Rej: -1
+// RR: 1
+// SET: 2
+// DISC: 3
+// UA: 4
 int receiveSupervisionFrame(int fd){
 
 	unsigned char *buffer;
@@ -335,26 +344,56 @@ int receiveSupervisionFrame(int fd){
 
 	int r;
 	r = read(fd, buffer, sizeof(char)*5);
-	if(r < 0)
-		printf("Erro na Trama de Supervisao");
+	if(r < 0){
+		printf("Erro no tamanho da Trama de Supervisao");
+		return -1;
+	}
 	
-	if(buffer[0] != FLAG)
+	// FLAG
+	if(buffer[0] != FLAG){
+		printf("Erro na FLAG_1 da Trama de Supervisao");
 		return -1;
+	}
 
-	if(buffer[1] != AE)
+	// A
+	if(buffer[1] != AE){
+		printf("Erro no A da Trama de Supervisao");
 		return -1;
+	}
 
-	if(buffer[3] != (buffer[1]^buffer[2]))
+	// BCC
+	if(buffer[3] != (buffer[1]^buffer[2])){
+		printf("Erro no BCC da Trama de Supervisao");
 		return -1;
+	}
 
-	if(buffer[4] != FLAG)
+	// FLAG
+	if(buffer[4] != FLAG){
+		printf("Erro na FLAG_2 da Trama de Supervisao");
 		return -1;
+	}
 
+	// C
 	if((CFlag == 0 && buffer[2] == 'RR0') || (CFlag == 1 && buffer[2] == 'RR1')){
+		printf("RR na Trama de Supervisao");
 		CFlag = (CFlag + 1) % 2;
 		return 1;
-	} else
+	} else if(buffer[2] == 'SET'){
+		printf("SET na Trama de Supervisao");
+		return 2;
+	}
+	else if(buffer[2] == 'DISC'){
+		printf("DISC na Trama de Supervisao");
+		return 3;
+	}
+	else if(buffer[2] == 'UA'){
+		printf("UA na Trama de Supervisao");
+		return 4;
+	}
+	else{
+		printf("Erro na Trama de Supervisao");
 		return -1;
+	}
 
 	return 0;
 }
@@ -475,12 +514,14 @@ int readFile(char *fileName){
 	return 0;
 }
 
-
+// Sends a supervision frame to the emissor with the answer
 void sendSupervisionFrame(unsigned char controlField, int fd){
+
+	printf("Started creating the supervision frame");
 
 	unsigned char buffer[5];
 
-	// Flag
+	// FLAG
 	buffer[0] = FLAG;
 
 	// A
@@ -505,10 +546,13 @@ void sendSupervisionFrame(unsigned char controlField, int fd){
 	else if(controlField == 'UA')
 		buffer[2] = UA;
 
+	// BCC
 	buffer[3] = buffer[0] ^ buffer[1];
 
+	// FLAG
 	buffer[4] = FLAG;
 
+	printf("About to write the supervision frame");
 	write(fd, buffer, 5);
 }
 
@@ -522,16 +566,16 @@ int readDataPackets(){
 	int fd;
 
 	while(1){
-		unsigned char controloEnd[128];
+
+		/*unsigned char controloEnd[128];
 		controloEnd[0] = END_C;
 		controloEnd[1] = 9;
 		controloEnd[2] = 124/256;
-		controloEnd[3] = 124%256
+		controloEnd[3] = 124%256;
 
+		memcpy(&controloEnd[4], &buffer[k], 124);
 
-		memcpy(&controlEnd[4], &buffer[k], 124);
-
-		llwrite(fd, controlEnd, 128);
+		llwrite(fd, controloEnd, 128);*/
 
 		int size;
 		if ((size = llread(getFileDescriptor(app), buffer)) == -1)
@@ -569,7 +613,7 @@ int readDataPackets(){
 					fileSize = 0x00;
 					for(k = 0; k < l, k++){
 						
-						// Começa no ultimo byte e 
+						// Começa no ultimo byte 
 						fileSize |= buffer[1 + i*(1+1+l) + 1 - k] << 8*k;
 					}
 
@@ -588,8 +632,8 @@ int readDataPackets(){
 					return -1;
 			}
 
-			CFlag = (CFlag + 1) % 2;
 			sendSupervisionFrame('RR', getFileDescriptor(app));
+			CFlag = (CFlag + 1) % 2;
 
 			if(buffer[0] == 3){
 				sendSupervisionFrame('DISC', getFileDescriptor(app));
