@@ -38,8 +38,7 @@ applicationLayer * app;
 int CFlag = 0;
 unsigned int attempts = 0;
 
-void atende()
-{
+void atende(){
 	printf("Trying  to connect %hd of %hd times.\n", getNumberOFTries(linkL) + 1, getnumTransformations(linkL));
 	setFlag(linkL, 0);
 	anotherTry(linkL);
@@ -214,6 +213,10 @@ int llopen(int path, int mode) {
 	}
 
 	return TRUE;
+}
+
+int llclose(int fd){
+
 }
 
 void sigint_handler(int signo) {
@@ -557,95 +560,6 @@ void sendSupervisionFrame(unsigned char controlField, int fd){
 	write(fd, buffer, 5);
 }
 
-// Checka se o pacote de dados está bem
-int readDataPackets(){
-
-	unsigned char buffer[128];
-	unsigned char dataPacket[128];
-	char * fileName;
-	unsigned char fileSize = 0;
-	int fd;
-
-	while(1){
-
-		/*unsigned char controloEnd[128];
-		controloEnd[0] = END_C;
-		controloEnd[1] = 9;
-		controloEnd[2] = 124/256;
-		controloEnd[3] = 124%256;
-
-		memcpy(&controloEnd[4], &buffer[k], 124);
-
-		llwrite(fd, controloEnd, 128);*/
-
-		int size;
-		if ((size = llread(getFileDescriptor(app), buffer)) == -1)
-			sendSupervisionFrame('REJ', getFileDescriptor(app));
-		
-
-		if(buffer[0] == 1){
-		
-			/*if(buffer[1] == 0xFF)
-				return -1;*/
-
-			// Numero de bytes do campo de dados
-			int k = 256 * buffer[2] + buffer[3];
-
-			int i;
-			for(i = 0; i < k; i++){
-
-				dataPacket[i] = buffer[i];
-				write(getFileDescriptor(app), dataPacket[i], 1);
-			}
-
-		} else if(buffer[0] == 2 || buffer[0] == 3){
-
-			int i;
-			int k;
-			unsigned char l = 0;
-			unsigned char t = 0;
-			for(i = 0; i < 2; i++){
-
-				l = buffer[1 + i*(1+1+l) + 1];
-				t = buffer[1 + i*(1+1+l)];
-
-				if(t == 0){
-
-					fileSize = 0x00;
-					for(k = 0; k < l, k++){
-						
-						// Começa no ultimo byte 
-						fileSize |= buffer[1 + i*(1+1+l) + 1 - k] << 8*k;
-					}
-
-				} else if(t == 1){
-
-					filename = malloc(l + 1);
-					for(k = 0; k < l; k++){
-	
-						fileName[k] = buffer[1 + i*(1+1+l) + 2 + k];
-					}
-					filename[k] = 0;
-
-					setTargetDescriptor(app, open(fileName, O_WRONLY | O_CREAT | O_TRUNC, 0777));
-				
-				} else
-					return -1;
-			}
-
-			sendSupervisionFrame('RR', getFileDescriptor(app));
-			CFlag = (CFlag + 1) % 2;
-
-			if(buffer[0] == 3){
-				sendSupervisionFrame('DISC', getFileDescriptor(app));
-				break;
-			}
-		}
-	}
-
-	return 0;
-}
-
 // Recebe a trama e checka se está bem
 int llread(int fd, unsigned char * buffer){
 
@@ -715,50 +629,68 @@ int readDataPackets(){
 
 		llread(getFileDescriptor(app), buffer);
 
+		int size;
+		if ((size = llread(getFileDescriptor(app), buffer)) == -1)
+			sendSupervisionFrame('REJ', getFileDescriptor(app));
+		
+
 		if(buffer[0] == 1){
+		
+			/*if(buffer[1] == 0xFF)
+				return -1;*/
 
-			if(buffer[1] == 0xFF)
-				return -1;
-
+			// Numero de bytes do campo de dados
 			int k = 256 * buffer[2] + buffer[3];
 
 			int i;
-			for(i = 0; i < k; i++) {
-				dataPacket[i] = buffer[i];
-			}
+			for(i = 0; i < k; i++){
 
-			// passar dataPacket para o ficheiro filename agora
-			// open do ficheiro filename (em baixo) e dar write para la do dataPacket
+				dataPacket[i] = buffer[i];
+				write(getFileDescriptor(app), dataPacket[i], 1);
+			}
 
 		} else if(buffer[0] == 2 || buffer[0] == 3){
 
 			int i;
+			int k;
 			unsigned char l = 0;
+			unsigned char t = 0;
 			for(i = 0; i < 2; i++){
 
-				unsigned char t = buffer[1 + i*(1+1+l)];
+				l = buffer[1 + i*(1+1+l) + 1];
+				t = buffer[1 + i*(1+1+l)];
 
-				if(t == 1){
-					l = buffer[1 + i*(1+1+l) + 1];
+				if(t == 0){
+
+					fileSize = 0x00;
+					for(k = 0; k < l, k++){
+						
+						// Começa no ultimo byte 
+						fileSize |= buffer[1 + i*(1+1+l) + 1 - k] << 8*k;
+					}
+
+				} else if(t == 1){
+
 					filename = malloc(l + 1);
-					int k;
 					for(k = 0; k < l; k++){
-
-						filename[k] = buffer[1 + i*(1+1+l) + 2 + k];
+	
+						fileName[k] = buffer[1 + i*(1+1+l) + 2 + k];
 					}
 					filename[k] = 0;
 
-					//fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0777);
-
-				} else if(t == 0){
-
-					// tamanho do ficheiro
+					setTargetDescriptor(app, open(fileName, O_WRONLY | O_CREAT | O_TRUNC, 0777));
+				
 				} else
 					return -1;
 			}
 
-			if(buffer[0] == 3)
+			sendSupervisionFrame('RR', getFileDescriptor(app));
+			CFlag = (CFlag + 1) % 2;
+
+			if(buffer[0] == 3){
+				sendSupervisionFrame('DISC', getFileDescriptor(app));
 				break;
+			}
 		}
 	}
 
