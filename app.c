@@ -29,12 +29,14 @@
 #define REJ0 0x01
 #define REJ1 0x81
 
+#define DATA_C 1
 #define START_C 2
 #define END_C 3
 
 linkLayer * linkL;
 applicationLayer * app;
 int CFlag = 0;
+unsigned int attempts = 0;
 
 void atende()
 {
@@ -166,6 +168,23 @@ int sendSetMessage(int path) {
 	return TRUE;
 }
 
+/*
+	Função que tenta dar write dos frames.
+*/
+int write_frame(int fd, unsigned char *frame, unsigned int length){
+	int aux, total = 0;
+
+	while(total < length){
+		aux = write(fd, frame, length);
+
+		if(aux <= 0)
+			return -1;
+
+		total += aux;
+	}
+	return total;
+}
+
 int llopen(int path, int mode) {
 
 	initializeStateMachine(linkL);
@@ -293,12 +312,18 @@ int llwrite(int fd, unsigned char* buffer, int length){
 	frame[length+5] = FLAG;
 	// Checkpoint: frame = trama de informacao
 
-//É suposto por isto num ciclo para estar sempre a tentar
-	int numBytes = write(fd, frame, length+6);
 
-	if(numBytes == -1){
-		printf("Error writting on llwrite\n");
+	if(write_frame(fd, frame, length+6) == -1){
+		printf("Error writting frame\n");
+		return -1;
 	}
+
+	if(receiveSupervisionFrame(fd) == 0){
+		attempts = 0; //Ainda nao estamos a utilizar mas se correr tudo bem dá reset
+		alarm(0);
+		
+	}
+
 
 	return numBytes;
 }
@@ -330,74 +355,123 @@ int receiveSupervisionFrame(int fd){
 		return 1;
 	} else
 		return -1;
+
+	return 0;
 }
 
 //Função responsável por ler o ficheiro a mandar e enviar por llwrite os pacotes de dados
 //Nível aplicação
-int readFile(char *fileName, int Nbytes){
+int readFile(char *fileName){
+
+	int i, j;
+	struct stat st; //estrutura que vai conter informacao do fichero
+	int bytes = 0, bytesRead = 0; //Variável a utilizar para sabermos quantos bytes já foram enviados
+	int filzeSizeAux; //Variavel a utilizar nos pacotes de dados pois para START e END utilizamos off_t
+	char *buffer; //buffer para data packets
+	unsigned char bufferFile[252]; //usado para ler o ficheiro de 252 em 252
+	int nSeq = 0; //Sequencia para os pacotes de dados.
 
 	int fd = open(fileName, O_RDONLY);
-	int j;
-	if(fd == -1)
+	if(fd == -1){
 		printf("Unable to open file %s", fileName);
-	//buffer vai guardar o ficheiro
-	unsigned char *buffer;
-	int i, length, r = 0;
-
-	//ir buscar o tamanho do ficheiro
-
-	//buffer = (unsigned char *) malloc()
-
-	// while((r = read(fd, buffer[i*1024], 1024)) > 0){
-	// 	i++;
-	// 	length += r;
-	// }
-	//Aqui constrói pacotes de dados
-
-	unsigned char* control = (char *) malloc(strlen(fileName) + 6);
-	control[0] = 2;
-	control[1] = 1;
-	control[2] = strlen(fileName);
-	for(i = 3, j = 0; i < control[2]; i++, j++){
-		control[i] = fileName[j];
-	}
-	control[i+1] = 0;
-	control[i+2] = sizeof(int);
-	control[i+3] = length;
-
-
-	int send = llwrite(fd, control, i+3);
-	int k = 0;
-
-	buffer = (char *) malloc(sizeof(control));
-
-	//
-	while(1){
-		unsigned char controloStart[128];
-		controloStart[0] = START_C;
-		controloStart[1] = 8;
-		controloStart[2] = 124/256;
-		controloStart[3] = 124%256;
-
-		memcpy( &controloStart[4], &buffer[k], 124);
-
-		llwrite(fd, controloStart, 128);
+		return 1;
 	}
 
-	while(1){
-		unsigned char controloEnd[128];
-		controloEnd[0] = END_C;
-		controloEnd[1] = 9;
-		controloEnd[2] = 124/256;
-		controloEnd[3] = 124%256
+	fstat(fd, &st); //Poe valores na estrutura baseados no ficheiro
+	off_t fileSize = st.st_size; //Dimensao do ficheiro
 
-		memcpy(&controlEnd[4], &buffer[k], 124);
+	//Packet de início, utiliza START_C
+	/*
+		C = 2; START_C
+		T1 = 0;
+		L1 = sizeof(off_t);
+		V1 = fileSize;
 
-		llwrite(fd, controlEnd, 128);
+		T2 = 1;
+		L2 = sizeof(char);
+		V2 = fileName;
+	*/
+	unsigned int startLength;
+	startLength = 7 + sizeof(off_t) + (sizeof(fileSize) + strlen(fileName));
+	unsigned char* controlStart = (unsigned char *)malloc(sizeof(char)*length);
+	
+	controlStart[0] = START_C;
+	controlStart[1] = 0;
+	controlStart[2] = sizeof(off_t);
+	controlStart[3] = fileSize;
 
+	controlStart[4] = 1;
+	controlStart[5] = sizeof(char);
+	
+	for(i = 6, j = 0; j < size(fileName); i++, j++)
+		controlStart[i] = fileName[j];
+	
+	//Acabamos de fazer o Data packet de Start
+
+	if(llwrite(app.getFileDescriptor, controlStart, startLength) < 0){
+		printf("Error on llwrite: Start Packet\n");
+		return 1;
 	}
 
-	//
+	//PACKET DE DATA
+	/*
+		C = DATA_C;
+		N = Numero de sequencia: packet 1, 2, 3...
+		L2 = 252%256 
+		L1 = 252/256
+		P = campo de dados
+
+		Utilizamos 252 em L1 e L2 pois vamos ler do ficheiro 252 de cada vez
+	*/
+	filzeSizeAux = (int) fileSize;
+	buffer = (unsigned char*)malloc(256); //[C,N,L2,L1,P1...PK]
+
+	while(bytes < fileSizeAux){
+		bytesRead = read(fd, bufferFile, 252);
+		if(bytesRead < 0)
+			printf("Error reading %s\n", fileName);
+
+		buffer[0] = DATA_C;
+		buffer[1] = nSeq; //Nao sei se e necessario mudar para char
+		buffer[2] = 252/256;
+		buffer[3] = 252%256;
+		
+		memcpy(buffer+4, bufferFile, bytesRead); //Data packet, comeca na posiçao 5 e vai buscar a informacao no bufferFile
+
+		if(llwrite(app.getFileDescriptor, buffer, bytesRead + 4) < 0 ){
+			printf("Error llwrite: Data Packet %d", nSeq);
+			return -1;
+		}
+
+		bytes += bytesRead;
+		nSeq++;
+		printf("Packet successfuly sent\n");
+	}
+	close(fd);
+	//Packet de fim, utiliza END_C
+	/*
+		C = 2; END_C
+		T1 = 0;
+		L1 = sizeof(off_t);
+		V1 = fileSize;
+
+		T2 = 1;
+		L2 = sizeof(char);
+		V2 = fileName;
+	*/
+	controlStart[0] = END_C;
+
+	if(llwrite(app.getFileDescriptor, controlStart, startLength) < 0){
+		printf("Error on llwrite: End Packet\n");
+		return -1;
+	}
+	
+	/*
+		if(llclose(app.getFileDescriptor) < 0){
+			printf("Error llclose");
+			return -1;
+		}
+	*/
 	return 0;
 }
 
@@ -424,6 +498,12 @@ void sendSupervisionFrame(unsigned char controlField, int fd){
 		buffer[2] = REJ0;
 	else if(controlField == 'REJ' && CFlag == 1)
 		buffer[2] = REJ1;
+	else if(controlField == 'SET')
+		buffer[2] = SET;
+	else if(controlField == 'DISC')
+		buffer[2] = DISC;
+	else if(controlField == 'UA')
+		buffer[2] = UA;
 
 	buffer[3] = buffer[0] ^ buffer[1];
 
@@ -512,12 +592,12 @@ int readDataPackets(){
 			sendSupervisionFrame('RR', getFileDescriptor(app));
 
 			if(buffer[0] == 3){
+				sendSupervisionFrame('DISC', getFileDescriptor(app));
 				break;
 			}
 		}
 	}
 
-	//
 	return 0;
 }
 
