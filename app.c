@@ -18,12 +18,6 @@
 #define TRUE 1
 #define TRANSMITTER 1
 #define RECEIVER 0
-#define FLAG 0x7E
-#define AE 0x03
-#define AR 0x01
-#define SET 0x03
-#define DISC 0x0B
-#define UA 0x07
 #define RR0 0x05
 #define RR1 0x85
 #define REJ0 0x01
@@ -217,6 +211,7 @@ int llopen(int path, int mode) {
 
 int llclose(int fd){
 
+	return 0;
 }
 
 void sigint_handler(int signo) {
@@ -281,61 +276,6 @@ void sendFile() {
 	//enviar pacote de controlo com END
 }
 
-// Cria uma trama de informacao
-int llwrite(int fd, unsigned char* buffer, int length){
-
-	//Trama de informacao
-	unsigned char *frame;
-	int superVisionFrame;
-	int frameLength;
-
-	frame = (unsigned char *) malloc(length + 6);
-	frame[0] = FLAG;
-	frame[1] = AE;
-	if(CFlag == 0)
-		frame[2] = 0x00;
-	else
-		frame[2] = 0x40;
-	frame[3] = frame[1]^frame[2];
-	char bcc2 = buffer[0];
-
-	// BBC2
-	int i = 4, j = 0;
-	for(; j < length; i++, j++){
-		frame[i] = buffer[j];
-
-		if(j != 0)
-			bcc2 = bcc2^buffer[j];
-	}
-	frame[length+4] = bcc2;
-	//finished creating bcc2
-
-	frame[length+5] = FLAG;
-	// Checkpoint: frame = trama de informacao
-	
-//while(tentativas < numero maximo de tentativas){
-	int frameLength = length + 6; //length dos dados mais F,A,C,BCC1,BCC2,F
-	if(write_frame(fd, frame, length+6) == -1){
-		printf("Error writting frame\n");
-		return -1;
-	}
-
-	superVisionFrame = receiveSupervisionFrame(fd);
-	if(superVisionFrame != 0){
-		attempts = 0;
-		alarm(0);
-		if(superVisionFrame == 1) //verifica se o frame é RR
-			return frameLength;
-	}
-
-	alarm(0);
-	
-//}
-
-	//printf("Connection timed out\n");
-	return -1;
-}
-
 // Error/Rej: -1
 // RR: 1
 // SET: 2
@@ -378,19 +318,19 @@ int receiveSupervisionFrame(int fd){
 	}
 
 	// C
-	if((CFlag == 0 && buffer[2] == 'RR0') || (CFlag == 1 && buffer[2] == 'RR1')){
+	if((CFlag == 0 && buffer[2] == RR0) || (CFlag == 1 && buffer[2] == RR1)){
 		printf("RR na Trama de Supervisao");
 		CFlag = (CFlag + 1) % 2;
 		return 1;
-	} else if(buffer[2] == 'SET'){
+	} else if(buffer[2] == SET){
 		printf("SET na Trama de Supervisao");
 		return 2;
 	}
-	else if(buffer[2] == 'DISC'){
+	else if(buffer[2] == DISC){
 		printf("DISC na Trama de Supervisao");
 		return 3;
 	}
-	else if(buffer[2] == 'UA'){
+	else if(buffer[2] == UA){
 		printf("UA na Trama de Supervisao");
 		return 4;
 	}
@@ -402,6 +342,62 @@ int receiveSupervisionFrame(int fd){
 	return 0;
 }
 
+
+// Cria uma trama de informacao
+int llwrite(int fd, unsigned char* buffer, int length){
+
+	//Trama de informacao
+	unsigned char *frame;
+	int superVisionFrame;
+	int frameLength;
+
+	frame = (unsigned char *) malloc(length + 6);
+	frame[0] = FLAG;
+	frame[1] = AE;
+	if(CFlag == 0)
+		frame[2] = 0x00;
+	else
+		frame[2] = 0x40;
+	frame[3] = frame[1]^frame[2];
+	char bcc2 = buffer[0];
+
+	// BBC2
+	int i = 4, j = 0;
+	for(; j < length; i++, j++){
+		frame[i] = buffer[j];
+
+		if(j != 0)
+			bcc2 = bcc2^buffer[j];
+	}
+	frame[length+4] = bcc2;
+	//finished creating bcc2
+
+	frame[length+5] = FLAG;
+	// Checkpoint: frame = trama de informacao
+	
+//while(tentativas < numero maximo de tentativas){
+	frameLength = length + 6; //length dos dados mais F,A,C,BCC1,BCC2,F
+	if(write_frame(fd, frame, length+6) == -1){
+		printf("Error writting frame\n");
+		return -1;
+	}
+
+	superVisionFrame = receiveSupervisionFrame(fd);
+	if(superVisionFrame != 0){
+		attempts = 0;
+		alarm(0);
+		if(superVisionFrame == 1) //verifica se o frame é RR
+			return frameLength;
+	}
+
+	alarm(0);
+	
+//}
+
+	//printf("Connection timed out\n");
+	return -1;
+}
+
 //Função responsável por ler o ficheiro a mandar e enviar por llwrite os pacotes de dados
 //Nível aplicação
 int readFile(char *fileName){
@@ -409,8 +405,8 @@ int readFile(char *fileName){
 	int i, j;
 	struct stat st; //estrutura que vai conter informacao do fichero
 	int bytes = 0, bytesRead = 0; //Variável a utilizar para sabermos quantos bytes já foram enviados
-	int filzeSizeAux; //Variavel a utilizar nos pacotes de dados pois para START e END utilizamos off_t
-	char *buffer; //buffer para data packets
+	int fileSizeAux; //Variavel a utilizar nos pacotes de dados pois para START e END utilizamos off_t
+	unsigned char *buffer; //buffer para data packets
 	unsigned char bufferFile[252]; //usado para ler o ficheiro de 252 em 252
 	int nSeq = 0; //Sequencia para os pacotes de dados.
 
@@ -436,7 +432,7 @@ int readFile(char *fileName){
 	*/
 	unsigned int startLength;
 	startLength = 7 + sizeof(off_t) + (sizeof(fileSize) + strlen(fileName));
-	unsigned char* controlStart = (unsigned char *)malloc(sizeof(char)*length);
+	unsigned char* controlStart = (unsigned char *)malloc(sizeof(char)*startLength);
 	
 	controlStart[0] = START_C;
 	controlStart[1] = 0;
@@ -446,12 +442,12 @@ int readFile(char *fileName){
 	controlStart[4] = 1;
 	controlStart[5] = sizeof(char);
 	
-	for(i = 6, j = 0; j < size(fileName); i++, j++)
+	for(i = 6, j = 0; j < strlen(fileName); i++, j++)
 		controlStart[i] = fileName[j];
 	
 	//Acabamos de fazer o Data packet de Start
 
-	if(llwrite(app.getFileDescriptor, controlStart, startLength) < 0){
+	if(llwrite(getFileDescriptor(app), controlStart, startLength) < 0){
 		printf("Error on llwrite: Start Packet\n");
 		return 1;
 	}
@@ -466,8 +462,8 @@ int readFile(char *fileName){
 
 		Utilizamos 252 em L1 e L2 pois vamos ler do ficheiro 252 de cada vez
 	*/
-	filzeSizeAux = (int) fileSize;
-	buffer = (unsigned char*)malloc(256); //[C,N,L2,L1,P1...PK]
+	fileSizeAux = (int) fileSize;
+	buffer = (unsigned char*) malloc(256); //[C,N,L2,L1,P1...PK]
 
 	while(bytes < fileSizeAux){
 		bytesRead = read(fd, bufferFile, 252);
@@ -481,7 +477,7 @@ int readFile(char *fileName){
 		
 		memcpy(buffer+4, bufferFile, bytesRead); //Data packet, comeca na posiçao 5 e vai buscar a informacao no bufferFile
 
-		if(llwrite(app.getFileDescriptor, buffer, bytesRead + 4) < 0 ){
+		if(llwrite(getFileDescriptor(app), buffer, bytesRead + 4) < 0 ){
 			printf("Error llwrite: Data Packet %d", nSeq);
 			return -1;
 		}
@@ -504,7 +500,7 @@ int readFile(char *fileName){
 	*/
 	controlStart[0] = END_C;
 
-	if(llwrite(app.getFileDescriptor, controlStart, startLength) < 0){
+	if(llwrite(getFileDescriptor(app), controlStart, startLength) < 0){
 		printf("Error on llwrite: End Packet\n");
 		return -1;
 	}
@@ -535,21 +531,7 @@ void sendSupervisionFrame(unsigned char controlField, int fd){
 		buffer[1] = AR;
 
 	// C
-	if(controlField == 'RR' && CFlag == 0)
-		buffer[2] = RR0;
-	else if(controlField == 'RR' && CFlag == 1)
-		buffer[2] = RR1;
-	else if(controlField == 'REJ' && CFlag == 0)
-		buffer[2] = REJ0;
-	else if(controlField == 'REJ' && CFlag == 1)
-		buffer[2] = REJ1;
-	else if(controlField == 'SET')
-		buffer[2] = SET;
-	else if(controlField == 'DISC')
-		buffer[2] = DISC;
-	else if(controlField == 'UA')
-		buffer[2] = UA;
-
+	buffer[2] = controlField;
 	// BCC
 	buffer[3] = buffer[0] ^ buffer[1];
 
@@ -630,8 +612,14 @@ int readDataPackets(){
 		llread(getFileDescriptor(app), buffer);
 
 		int size;
-		if ((size = llread(getFileDescriptor(app), buffer)) == -1)
-			sendSupervisionFrame('REJ', getFileDescriptor(app));
+		if ((size = llread(getFileDescriptor(app), buffer)) == -1){
+
+			
+			if(CFlag == 0)
+				sendSupervisionFrame(REJ0, getFileDescriptor(app));
+			else
+				sendSupervisionFrame(REJ1, getFileDescriptor(app));
+		}
 		
 
 		if(buffer[0] == 1){
@@ -646,7 +634,7 @@ int readDataPackets(){
 			for(i = 0; i < k; i++){
 
 				dataPacket[i] = buffer[i];
-				write(getFileDescriptor(app), dataPacket[i], 1);
+				write(getFileDescriptor(app), &dataPacket[i], 1);
 			}
 
 		} else if(buffer[0] == 2 || buffer[0] == 3){
@@ -655,6 +643,8 @@ int readDataPackets(){
 			int k;
 			unsigned char l = 0;
 			unsigned char t = 0;
+			unsigned char fileSize;
+
 			for(i = 0; i < 2; i++){
 
 				l = buffer[1 + i*(1+1+l) + 1];
@@ -663,7 +653,7 @@ int readDataPackets(){
 				if(t == 0){
 
 					fileSize = 0x00;
-					for(k = 0; k < l, k++){
+					for(k = 0; k < l; k++){
 						
 						// Começa no ultimo byte 
 						fileSize |= buffer[1 + i*(1+1+l) + 1 - k] << 8*k;
@@ -674,21 +664,24 @@ int readDataPackets(){
 					filename = malloc(l + 1);
 					for(k = 0; k < l; k++){
 	
-						fileName[k] = buffer[1 + i*(1+1+l) + 2 + k];
+						filename[k] = buffer[1 + i*(1+1+l) + 2 + k];
 					}
 					filename[k] = 0;
 
-					setTargetDescriptor(app, open(fileName, O_WRONLY | O_CREAT | O_TRUNC, 0777));
+					setTargetDescriptor(app, open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0777));
 				
 				} else
 					return -1;
 			}
 
-			sendSupervisionFrame('RR', getFileDescriptor(app));
+			if(CFlag == 0)
+				sendSupervisionFrame(RR0, getFileDescriptor(app));
+			else
+				sendSupervisionFrame(RR1, getFileDescriptor(app));
 			CFlag = (CFlag + 1) % 2;
 
 			if(buffer[0] == 3){
-				sendSupervisionFrame('DISC', getFileDescriptor(app));
+				sendSupervisionFrame(DISC, getFileDescriptor(app));
 				break;
 			}
 		}
@@ -712,14 +705,12 @@ int main(int argc, char** argv) {
 
 	createConnection();
 
-	if(getStatus(app) == TRASNMITTER) {
-		sendFile();
-
 	if(getStatus(app) == TRANSMITTER) {
-
+		sendFile();
 	}
-	else if(getStatus(app) == RECEIVER){
 
+	else if(getStatus(app) == RECEIVER){
+		//Checkar o que é que isto tem de fazer
 	}
 	else {
 		perror("Wrong mode!\n");
