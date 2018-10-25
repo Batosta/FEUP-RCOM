@@ -209,73 +209,6 @@ int llopen(int path, int mode) {
 	return TRUE;
 }
 
-int llclose(int fd){
-
-	return 0;
-}
-
-void sigint_handler(int signo) {
-	printf("Ctrl+C received\n");
-
-	resetPortConfiguration(app);
-
-	exit(0);
-}
-
-void configureLinkLayer(char * path) {
-	unsigned short tm, tries;
-	int fd;
-	char filePath[256];
-
-	printf("Insert timeout value (s): ");
-
-	scanf("%hd", &tm);
-
-	printf("Insert number of tries: ");
-
-	scanf("%hd", &tries);
-
-	linkL = getLinkLayer(tries, tm, path);
-
-	if(getStatus(app) == TRANSMITTER) {
-		//LER NOME DO FICHEIRO e carregar fd para appLayer
-		printf("Insert file path: ");
-		scanf("%s", filePath);
-		fd = openFile(filePath);
-		setTargetDescriptor(app, fd);
-	}
-}
-
-void installSignalHandlers() {
-	signal(SIGINT, sigint_handler);
-	(void) signal(SIGALRM, atende);
-}
-
-void createConnection() {
-	if(llopen(getFileDescriptor(app), getStatus(app)) == TRUE) {
-		printf("Connection established!\n");
-	} else {
-		perror("connection failed!\n");
-		resetPortConfiguration(app);
-		close(getFileDescriptor(app));
-		exit(-1);
-	}
-}
-
-void sendFile() {
-	struct stat st;
-
-	fstat(getTargetDescriptor(app), &st);
-
-	mode_t sizeOfFile = st.st_size;
-
-	printf("size: %d\n", sizeOfFile);
-
-	//Obter tamanho, nome do ficheiro e permissões e enviar
-	//Depois comecar a enviar tramas dos bytes lidos no FICHEIRO
-	//enviar pacote de controlo com END
-}
-
 // Error/Rej: -1
 // RR: 1
 // SET: 2
@@ -339,7 +272,134 @@ int receiveSupervisionFrame(int fd){
 		return -1;
 	}
 
-	return 0;
+	return -1;
+}
+
+// Sends a supervision frame to the emissor with the answer
+void sendSupervisionFrame(unsigned char controlField, int fd){
+
+	printf("Started creating the supervision frame");
+
+	unsigned char buffer[5];
+
+	// FLAG
+	buffer[0] = FLAG;
+
+	// A
+	if(getStatus(app) == TRANSMITTER)
+		buffer[1] = AE;
+	else
+		buffer[1] = AR;
+
+	// C
+	buffer[2] = controlField;
+	// BCC
+	buffer[3] = buffer[0] ^ buffer[1];
+
+	// FLAG
+	buffer[4] = FLAG;
+
+	printf("About to write the supervision frame");
+	write(fd, buffer, 5);
+}
+
+// Retorna 1 em caso de sucesso
+// Retorna -1 em caso de erro
+int llclose(int fd, int mode){
+
+	//setState(linkL?, FINAL_STATE?);
+
+	switch(mode){
+
+		case RECEIVER:
+			while(1){				//trocar a condição
+
+				if(receiveSupervisionFrame(getFileDescriptor(app) != 3))
+					return -1;
+				sendSupervisionFrame(DISC, getFileDescriptor(app));
+				if(receiveSupervisionFrame(getFileDescriptor(app) != 4))
+					return -1;
+				}
+			return 1;	
+		break;
+		
+		case TRANSMITTER:
+			while(1){				//trocar a condição
+
+				sendSupervisionFrame(DISC, getFileDescriptor(app));
+				if(receiveSupervisionFrame(getFileDescriptor(app) != 3))
+					return -1;
+				sendSupervisionFrame(UA, getFileDescriptor(app));
+				}
+			return 1;
+		break;
+		default:
+			return 1;
+	}
+	
+	return 1;
+}
+
+void sigint_handler(int signo) {
+	printf("Ctrl+C received\n");
+
+	resetPortConfiguration(app);
+
+	exit(0);
+}
+
+void configureLinkLayer(char * path) {
+	unsigned short tm, tries;
+	int fd;
+	char filePath[256];
+
+	printf("Insert timeout value (s): ");
+
+	scanf("%hd", &tm);
+
+	printf("Insert number of tries: ");
+
+	scanf("%hd", &tries);
+
+	linkL = getLinkLayer(tries, tm, path);
+
+	if(getStatus(app) == TRANSMITTER) {
+		//LER NOME DO FICHEIRO e carregar fd para appLayer
+		printf("Insert file path: ");
+		scanf("%s", filePath);
+		fd = openFile(filePath);
+		setTargetDescriptor(app, fd);
+	}
+}
+
+void installSignalHandlers() {
+	signal(SIGINT, sigint_handler);
+	(void) signal(SIGALRM, atende);
+}
+
+void createConnection() {
+	if(llopen(getFileDescriptor(app), getStatus(app)) == TRUE) {
+		printf("Connection established!\n");
+	} else {
+		perror("connection failed!\n");
+		resetPortConfiguration(app);
+		close(getFileDescriptor(app));
+		exit(-1);
+	}
+}
+
+void sendFile() {
+	struct stat st;
+
+	fstat(getTargetDescriptor(app), &st);
+
+	mode_t sizeOfFile = st.st_size;
+
+	printf("size: %d\n", sizeOfFile);
+
+	//Obter tamanho, nome do ficheiro e permissões e enviar
+	//Depois comecar a enviar tramas dos bytes lidos no FICHEIRO
+	//enviar pacote de controlo com END
 }
 
 
@@ -506,40 +566,12 @@ int readFile(char *fileName){
 	}
 	
 	/*
-		if(llclose(app.getFileDescriptor) < 0){
+		if(llclose(getFileDescriptor(app)) < 0){
 			printf("Error llclose");
 			return -1;
 		}
 	*/
 	return 0;
-}
-
-// Sends a supervision frame to the emissor with the answer
-void sendSupervisionFrame(unsigned char controlField, int fd){
-
-	printf("Started creating the supervision frame");
-
-	unsigned char buffer[5];
-
-	// FLAG
-	buffer[0] = FLAG;
-
-	// A
-	if(getStatus(app) == TRANSMITTER)
-		buffer[1] = AE;
-	else
-		buffer[1] = AR;
-
-	// C
-	buffer[2] = controlField;
-	// BCC
-	buffer[3] = buffer[0] ^ buffer[1];
-
-	// FLAG
-	buffer[4] = FLAG;
-
-	printf("About to write the supervision frame");
-	write(fd, buffer, 5);
 }
 
 // Recebe a trama e checka se está bem
