@@ -30,6 +30,9 @@
 #define SIZE_PARAMETER 0
 #define NAME_PARAMETER 1
 
+#define OCTETO1 0x7e
+#define OCTETO2 0x7d
+
 linkLayer * linkL;
 applicationLayer * app;
 int CFlag = 0;
@@ -392,12 +395,89 @@ void createConnection() {
 	}
 }
 
+char getBCC2(unsigned char *buffer, int length){
+	
+	char bcc2;
+	int i;
+
+	bcc2 = buffer[0]; 
+
+	for(i = 1; i < length; i++){
+		bcc2 ^= buffer[i];
+	}
+
+	return bcc2;
+}
+
+unsigned char *getStuffedData(unsigned char *buffer, int length){
+
+	int i, j, contador = 0, stuffedLength;
+	unsigned char *stuffed;
+
+
+	for(i = 0; i < length; i++){
+		if(buffer[i] == OCTETO1 || buffer[i] == OCTETO2)
+			contador++;
+	}
+
+	stuffedLength = contador + length;
+
+	stuffed = (unsigned char*)malloc(stuffedLength);
+
+	for(i = 0, j = 0; i < length; i++){
+		if(buffer[i] == OCTETO1){
+			stuffed[j] = 0x7d;
+			j++;
+			stuffed[j] = 0x5e;
+			j++;
+		}else if(buffer[i] == OCTETO2){
+			stuffed[j] = 0x7d;
+			j++;
+			stuffed[j] = 0x5d;
+			j++;
+		}else{
+			stuffed[j] = buffer[i];
+			j++;
+		}
+	}
+	return stuffed;
+}
+
+unsigned char *getUnstuffedData(unsigned char *buffer, int length){
+
+	int i, j, contador = 0, unstuffedLength;
+	unsigned char *unstuffed;
+
+	for(i = 0; i < length; i++){
+		if(buffer[i] == 0x7d){
+			if(buffer[i+1] == 0x5e || buffer[i+1] == 0x5d)
+				contador++;
+		}
+	}
+
+	unstuffedLength = length - contador;
+
+	unstuffed = (unsigned char*)malloc(unstuffedLength);
+
+	for(i = 0, j = 0; i < length; i++, j++){
+		if(buffer[i] == 0x7d){
+			if(buffer[i+1] == 0x5e){
+				unstuffed[j] = 0x7e;
+			}else if(buffer[i+1] == 0x5d){
+				unstuffed[j] = 0x7d;
+			}
+		}else
+			unstuffed[j] = buffer[i];
+	}
+	return unstuffed;
+}
+
 // Cria uma trama de informacao
 int llwrite(int fd, unsigned char* buffer, int length){
 
 	//Trama de informacao
 	unsigned char *frame;
-	int superVisionFrame;
+	//int superVisionFrame;
 	int frameLength;
 
 	frame = (unsigned char *) malloc(length + 6);
@@ -408,6 +488,7 @@ int llwrite(int fd, unsigned char* buffer, int length){
 	else
 		frame[2] = 0x40;
 	frame[3] = frame[1]^frame[2];
+	
 	char bcc2 = buffer[0];
 
 	// BBC2
@@ -419,44 +500,31 @@ int llwrite(int fd, unsigned char* buffer, int length){
 			bcc2 = bcc2^buffer[j];
 	}
 	frame[length+4] = bcc2;
-	//finished creating bcc2
-
 	frame[length+5] = FLAG;
-	// Checkpoint: frame = trama de informacao
-	
-//while(tentativas < numero maximo de tentativas){
+
 	frameLength = length + 6; //length dos dados mais F,A,C,BCC1,BCC2,F
 	if(write_frame(fd, frame, length+6) == -1){
 		printf("Error writting frame\n");
 		return -1;
 	}
 /*
-	superVisionFrame = receiveSupervisionFrame(fd);
-	if(superVisionFrame != 0){
-		attempts = 0;
-		alarm(0);
-		if(superVisionFrame == 1) //verifica se o frame é RR
-			return frameLength;
+	int k;
+	for(k = 0; k < length+6; k++){
+		printf("%x", frame[k]);
 	}
-*/
-	alarm(0);
-	
-//}
+	printf("\n");*/
 
-	//printf("Connection timed out\n");
 	return frameLength;
 }
 
 
-int sendFileInfo(char * fileName) {
+int sendFileInfo(char * fileName, int control) {
 	struct stat st;
 	unsigned int startLength;
 	unsigned char * controlStart;
 	off_t sizeOfFile;
 	int i, j;
 
-	printf("A obter tamanho\n");
-	printf("%s\n", getFileName(app));
 
 	fstat(getTargetDescriptor(app), &st);
 
@@ -465,7 +533,7 @@ int sendFileInfo(char * fileName) {
 	startLength = 7 + sizeof(off_t) + strlen(fileName);
 	controlStart = (unsigned char *)malloc(sizeof(unsigned char)*startLength);
 
-	controlStart[0] = START_C;
+	controlStart[0] = control;
 	controlStart[1] = SIZE_PARAMETER;
 	controlStart[2] = sizeof(off_t);
 
@@ -476,25 +544,27 @@ int sendFileInfo(char * fileName) {
 	
 	for(i = 5 + sizeof(off_t), j = 0; j < strlen(fileName); i++, j++)
 		controlStart[i] = fileName[j];
-
-	/*for(i = 0; i < startLength; i++) {
-		printf("%x ", controlStart[i]);
-	}*/
 	
 	//Acabamos de fazer o Data packet de Start
-
 	if(llwrite(getFileDescriptor(app), controlStart, startLength) < 0){
 		printf("Error on llwrite: Start Packet\n");
 		return 1;
+	}/*
+	int k;
+	for(k = 0; k < startLength; k++){
+		printf(" %c ", controlStart[k]);
 	}
+	printf("\n");*/
 
 	return (int)sizeOfFile;
 }
 
 int sendFileData(int fileSize){
 
-	int fileSizeAux, bytes = 0, bytesRead = 0, nSeq = 0, i;
+	int fileSizeAux, bytes = 0, bytesRead = 0, nSeq = 0;
 	unsigned char *buffer, bufferFile[4];
+	int k;
+	//int packetSent = 0;
 
 	fileSizeAux = fileSize;
 	buffer = (unsigned char*) malloc(8); //[C,N,L2,L1,P1...PK]
@@ -515,25 +585,18 @@ int sendFileData(int fileSize){
 		
 		memcpy(buffer+4, bufferFile, bytesRead); //Data packet, comeca na posiçao 5 e vai buscar a informacao no bufferFile
 
-		/*if(llwrite(getFileDescriptor(app), buffer, bytesRead + 4) < 0 ){
+		if(llwrite(getFileDescriptor(app), buffer, bytesRead + 4) < 0 ){
 			printf("Error llwrite: Data Packet %d", nSeq);
 			return -1;
-		}*/
-
-		printf("TRAMA: ");
-
-		for(i = 0; i < sizeof(buffer); i++) {
-			printf("%x ", buffer[i]);
 		}
-
-		printf("\n");
-
 		memset(bufferFile, 0, 4);
 
 		bytes += bytesRead;
 		nSeq++;
 
-		printf("Packet successfuly sent\n");
+		for(k = 0; k < (bytesRead+4); k++)
+			printf(" %x ", buffer[k]);
+		printf("\n");
 	}
 
 	close(getTargetDescriptor(app));
@@ -544,103 +607,15 @@ void sendFile() {
 
 	int sizeFile;
 
-	sizeFile = sendFileInfo(getFileName(app));
+	sizeFile = sendFileInfo(getFileName(app), START_C);//Trama de controlo START
 
-	sendFileData(sizeFile);
-	//sendTermination();
+	sendFileData(sizeFile);//Tramas de dados do ficheiro
+	
+	sizeFile = sendFileInfo(getFileName(app), END_C);//Trama de controlo END
+
 	//Obter tamanho, nome do ficheiro e permissões e enviar
 	//Depois comecar a enviar tramas dos bytes lidos no FICHEIRO
 	//enviar pacote de controlo com END
-}
-
-//Função responsável por ler o ficheiro a mandar e enviar por llwrite os pacotes de dados
-//Nível aplicação
-int readFile(char *fileName){
-/*
-	int i, j;
-	struct stat st; //estrutura que vai conter informacao do fichero
-	int bytes = 0, bytesRead = 0; //Variável a utilizar para sabermos quantos bytes já foram enviados
-	int fileSizeAux; //Variavel a utilizar nos pacotes de dados pois para START e END utilizamos off_t
-	unsigned char *buffer; //buffer para data packets
-	unsigned char bufferFile[252]; //usado para ler o ficheiro de 252 em 252
-	int nSeq = 0; //Sequencia para os pacotes de dados.
-
-	int fd = open(fileName, O_RDONLY);
-	if(fd == -1){
-		printf("Unable to open file %s", fileName);
-		return 1;
-	}
-
-	fstat(fd, &st); //Poe valores na estrutura baseados no ficheiro
-	off_t fileSize = st.st_size; //Dimensao do ficheiro
-
-	//Packet de início, utiliza START_C
-	/*
-		C = 2; START_C
-		T1 = 0;
-		L1 = sizeof(off_t);
-		V1 = fileSize;
-
-		T2 = 1;
-		L2 = sizeof(char);
-		V2 = fileName;
-	*/
-	
-
-	//PACKET DE DATA
-	/*
-		C = DATA_C;
-		N = Numero de sequencia: packet 1, 2, 3...
-		L2 = 252%256 
-		L1 = 252/256
-		P = campo de dados
-
-		Utilizamos 252 em L1 e L2 pois vamos ler do ficheiro 252 de cada vez
-
-	fileSizeAux = (int) fileSize;
-	buffer = (unsigned char*) malloc(256); //[C,N,L2,L1,P1...PK]
-
-	while(bytes < fileSizeAux){
-		bytesRead = read(fd, bufferFile, 252);
-		if(bytesRead < 0)
-			printf("Error reading %s\n", fileName);
-
-		buffer[0] = DATA_C;
-		buffer[1] = (unsigned char)nSeq%255; //Nao sei se e necessario mudar para char
-		buffer[2] = 252/256;
-		buffer[3] = 252%256;
-		
-		memcpy(buffer+4, bufferFile, bytesRead); //Data packet, comeca na posiçao 5 e vai buscar a informacao no bufferFile
-
-		if(llwrite(getFileDescriptor(app), buffer, bytesRead + 4) < 0 ){
-			printf("Error llwrite: Data Packet %d", nSeq);
-			return -1;
-		}
-
-		bytes += bytesRead;
-		nSeq++;
-		printf("Packet successfuly sent\n");
-	}
-	close(fd);
-	//Packet de fim, utiliza END_C
-	/*
-		C = 2; END_C
-		T1 = 0;
-		L1 = sizeof(off_t);
-		V1 = fileSize;
-
-		T2 = 1;
-		L2 = sizeof(char);
-		V2 = fileName;
-
-	//controlStart[0] = END_C;
-
-	if(llwrite(getFileDescriptor(app), controlStart, startLength) < 0){
-		printf("Error on llwrite: End Packet\n");
-		return -1;
-	}*/
-
-	return 0;
 }
 
 // Recebe a trama e checka se está bem
@@ -793,8 +768,6 @@ int readDataPackets(){
 
 
 int main(int argc, char** argv) {
-
-	printf("%d\n", sizeof(unsigned long));
 
 	installSignalHandlers();
 
