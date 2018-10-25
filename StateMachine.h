@@ -8,7 +8,7 @@
 #define AE 0x03
 #define AR 0x01
 #define SET 0x03
-#define DISC 0x09
+#define DISC 0x0B
 #define UA 0x07
 
 #define START_STATE 0
