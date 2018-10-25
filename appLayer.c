@@ -31,10 +31,15 @@ struct termios getOldPortConfiguration(applicationLayer *a){
 	return a->oldPortConfiguration;
 }
 
+char * getFileName(applicationLayer *a) {
+	return a->fileName;
+}
+
 
 //DEFINES
 void defineFileName(applicationLayer *a, char * name) {
 	a->fileName = name;
+	printf("nome difinido -> %s \n", a->fileName);
 }
 
 void defineOldPortAttr(applicationLayer *a, struct termios b) {

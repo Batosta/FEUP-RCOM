@@ -33,6 +33,8 @@ struct termios getOldPortConfiguration(applicationLayer *a);
 
 int getTargetDescriptor(applicationLayer *a);
 
+char * getFileName(applicationLayer *a);
+
 
 //DEFINES
 void defineFileName(applicationLayer *a, char * name);

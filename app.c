@@ -27,6 +27,9 @@
 #define START_C 2
 #define END_C 3
 
+#define SIZE_PARAMETER 0
+#define NAME_PARAMETER 1
+
 linkLayer * linkL;
 applicationLayer * app;
 int CFlag = 0;
@@ -369,6 +372,7 @@ void configureLinkLayer(char * path) {
 		scanf("%s", filePath);
 		fd = openFile(filePath);
 		setTargetDescriptor(app, fd);
+		defineFileName(app, filePath);
 	}
 }
 
@@ -387,21 +391,6 @@ void createConnection() {
 		exit(-1);
 	}
 }
-
-void sendFile() {
-	struct stat st;
-
-	fstat(getTargetDescriptor(app), &st);
-
-	mode_t sizeOfFile = st.st_size;
-
-	printf("size: %d\n", sizeOfFile);
-
-	//Obter tamanho, nome do ficheiro e permissões e enviar
-	//Depois comecar a enviar tramas dos bytes lidos no FICHEIRO
-	//enviar pacote de controlo com END
-}
-
 
 // Cria uma trama de informacao
 int llwrite(int fd, unsigned char* buffer, int length){
@@ -458,10 +447,78 @@ int llwrite(int fd, unsigned char* buffer, int length){
 	return -1;
 }
 
+
+int sendFileInfo(char * fileName) {
+	struct stat st;
+	unsigned int startLength;
+	unsigned char * controlStart;
+	off_t sizeOfFile;
+	int i, j;
+	char s[1024];
+
+	printf("A obter tamanho\n");
+	printf("%s\n", getFileName(app));
+
+	fstat(getTargetDescriptor(app), &st);
+
+	sizeOfFile = st.st_size;
+
+	printf("%d\n", sizeOfFile);
+	printf("%x\n", sizeOfFile);
+	
+	startLength = 7 + sizeof(off_t) + strlen(fileName);
+	controlStart = (unsigned char *)malloc(sizeof(unsigned char)*startLength);
+
+
+
+	printf("Cadeia alocada\n");
+
+	sprintf(s, "%d%d%d%d%d%d", START_C, SIZE_PARAMETER, sizeof(off_t), sizeOfFile, NAME_PARAMETER, strlen(fileName));
+
+	strcat(s, "pinguim.gif");
+	
+	/*controlStart[0] = START_C;
+	controlStart[1] = SIZE_PARAMETER;
+	controlStart[2] = sizeof(off_t);
+
+	memcpy(&controlStart[3], &sizeOfFile, 8);
+
+	controlStart[3+sizeof(off_t)] = NAME_PARAMETER;
+	controlStart[4+sizeof(off_t)] = strlen(fileName);
+	
+	for(i = 5 + sizeof(off_t), j = 0; j < strlen(fileName); i++, j++)
+		controlStart[i] = fileName[j];
+
+	for(i = 0; i < startLength; i++) {
+		printf("%x ", controlStart[i]);
+	}*/
+	printf("TRAMA: %s\n", s);
+	
+	//Acabamos de fazer o Data packet de Start
+
+	if(llwrite(getFileDescriptor(app), controlStart, startLength) < 0){
+		printf("Error on llwrite: Start Packet\n");
+		return 1;
+	}
+
+	return 0;
+}
+
+void sendFile() {
+	
+	printf("Vai enviar!\n");
+	sendFileInfo(getFileName(app));
+	//sendFileData();
+	//sendTermination();
+	//Obter tamanho, nome do ficheiro e permissões e enviar
+	//Depois comecar a enviar tramas dos bytes lidos no FICHEIRO
+	//enviar pacote de controlo com END
+}
+
 //Função responsável por ler o ficheiro a mandar e enviar por llwrite os pacotes de dados
 //Nível aplicação
 int readFile(char *fileName){
-
+/*
 	int i, j;
 	struct stat st; //estrutura que vai conter informacao do fichero
 	int bytes = 0, bytesRead = 0; //Variável a utilizar para sabermos quantos bytes já foram enviados
@@ -490,27 +547,7 @@ int readFile(char *fileName){
 		L2 = sizeof(char);
 		V2 = fileName;
 	*/
-	unsigned int startLength;
-	startLength = 7 + sizeof(off_t) + (sizeof(fileSize) + strlen(fileName));
-	unsigned char* controlStart = (unsigned char *)malloc(sizeof(char)*startLength);
 	
-	controlStart[0] = START_C;
-	controlStart[1] = 0;
-	controlStart[2] = sizeof(off_t);
-	controlStart[3] = fileSize;
-
-	controlStart[4] = 1;
-	controlStart[5] = sizeof(char);
-	
-	for(i = 6, j = 0; j < strlen(fileName); i++, j++)
-		controlStart[i] = fileName[j];
-	
-	//Acabamos de fazer o Data packet de Start
-
-	if(llwrite(getFileDescriptor(app), controlStart, startLength) < 0){
-		printf("Error on llwrite: Start Packet\n");
-		return 1;
-	}
 
 	//PACKET DE DATA
 	/*
@@ -521,7 +558,7 @@ int readFile(char *fileName){
 		P = campo de dados
 
 		Utilizamos 252 em L1 e L2 pois vamos ler do ficheiro 252 de cada vez
-	*/
+
 	fileSizeAux = (int) fileSize;
 	buffer = (unsigned char*) malloc(256); //[C,N,L2,L1,P1...PK]
 
@@ -531,7 +568,7 @@ int readFile(char *fileName){
 			printf("Error reading %s\n", fileName);
 
 		buffer[0] = DATA_C;
-		buffer[1] = nSeq; //Nao sei se e necessario mudar para char
+		buffer[1] = (unsigned char)nSeq%255; //Nao sei se e necessario mudar para char
 		buffer[2] = 252/256;
 		buffer[3] = 252%256;
 		
@@ -557,20 +594,14 @@ int readFile(char *fileName){
 		T2 = 1;
 		L2 = sizeof(char);
 		V2 = fileName;
-	*/
-	controlStart[0] = END_C;
+
+	//controlStart[0] = END_C;
 
 	if(llwrite(getFileDescriptor(app), controlStart, startLength) < 0){
 		printf("Error on llwrite: End Packet\n");
 		return -1;
-	}
-	
-	/*
-		if(llclose(getFileDescriptor(app)) < 0){
-			printf("Error llclose");
-			return -1;
-		}
-	*/
+	}*/
+
 	return 0;
 }
 
@@ -679,8 +710,8 @@ int readDataPackets(){
 
 			for(i = 0; i < 2; i++){
 
-				l = buffer[1 + i*(1+1+l) + 1];
 				t = buffer[1 + i*(1+1+l)];
+				l = buffer[1 + i*(1+1+l) + 1];
 
 				if(t == 0){
 
@@ -725,6 +756,8 @@ int readDataPackets(){
 
 int main(int argc, char** argv) {
 
+	printf("%d\n", sizeof(unsigned long));
+
 	installSignalHandlers();
 
 	analyseArgs(argc, argv);
@@ -742,7 +775,7 @@ int main(int argc, char** argv) {
 	}
 
 	else if(getStatus(app) == RECEIVER){
-		//Checkar o que é que isto tem de fazer
+		readDataPackets();
 	}
 	else {
 		perror("Wrong mode!\n");
