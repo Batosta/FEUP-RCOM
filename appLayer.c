@@ -38,8 +38,8 @@ char * getFileName(applicationLayer *a) {
 
 //DEFINES
 void defineFileName(applicationLayer *a, char * name) {
-	a->fileName = name;
-	printf("nome difinido -> %s \n", a->fileName);
+	a->fileName = (char *)malloc(strlen(name));
+	strcpy(a->fileName, name);
 }
 
 void defineOldPortAttr(applicationLayer *a, struct termios b) {
