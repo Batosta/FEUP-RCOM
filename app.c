@@ -37,6 +37,7 @@ linkLayer * linkL;
 applicationLayer * app;
 int CFlag = 0;
 unsigned int attempts = 0;
+char BST[3] = {0x7D, 0x5E, 0x5D};
 
 void atende(){
 	printf("Trying  to connect %hd of %hd times.\n", getNumberOFTries(linkL) + 1, getnumTransformations(linkL));
@@ -304,7 +305,7 @@ void sendSupervisionFrame(unsigned char controlField, int fd){
 	// FLAG
 	buffer[4] = FLAG;
 
-	write(fd, buffer, 5);
+	write_frame(fd, buffer, 5);
 }
 
 // Retorna 1 em caso de sucesso
@@ -424,16 +425,21 @@ unsigned char *getStuffedData(unsigned char *buffer, int length){
 
 	for(i = 0, j = 0; i < length; i++){
 		if(buffer[i] == OCTETO1){
-			stuffed[j] = 0x7d;
+
+			stuffed[j] = BST[0];
 			j++;
-			stuffed[j] = 0x5e;
+			stuffed[j] = BST[1];
 			j++;
+
 		}else if(buffer[i] == OCTETO2){
-			stuffed[j] = 0x7d;
+
+			stuffed[j] = BST[0];
 			j++;
-			stuffed[j] = 0x5d;
+			stuffed[j] = BST[2];
 			j++;
+
 		}else{
+
 			stuffed[j] = buffer[i];
 			j++;
 		}
@@ -449,6 +455,7 @@ int getStuffedLength(unsigned char *buffer, int length){
 		if(buffer[i] == OCTETO1 || buffer[i] == OCTETO2)
 			contador++;
 	}
+
 	stuffedLength = contador + length;
 	return stuffedLength;
 }
@@ -459,8 +466,8 @@ unsigned char *getUnstuffedData(unsigned char *buffer, int length){
 	unsigned char *unstuffed;
 
 	for(i = 0; i < length; i++){
-		if(buffer[i] == 0x7d){
-			if(buffer[i+1] == 0x5e || buffer[i+1] == 0x5d)
+		if(buffer[i] == BST[0]){
+			if(buffer[i+1] == BST[1] || buffer[i+1] == BST[2])
 				contador++;
 		}
 	}
@@ -470,11 +477,15 @@ unsigned char *getUnstuffedData(unsigned char *buffer, int length){
 	unstuffed = (unsigned char*)malloc(unstuffedLength);
 
 	for(i = 0, j = 0; i < length; i++, j++){
-		if(buffer[i] == 0x7d){
-			if(buffer[i+1] == 0x5e){
-				unstuffed[j] = 0x7e;
-			}else if(buffer[i+1] == 0x5d){
-				unstuffed[j] = 0x7d;
+		if(buffer[i] == BST[0]){
+
+			if(buffer[i+1] == BST[1]){
+
+				unstuffed[j] = OCTETO1;
+
+			}else if(buffer[i+1] == BST[2]){
+
+				unstuffed[j] = OCTETO2;
 			}
 		}else
 			unstuffed[j] = buffer[i];
@@ -487,8 +498,8 @@ int getUnstuffedLength(unsigned char *buffer, int length){
 	int i, contador = 0, unstuffedLength;
 
 	for(i = 0; i < length; i++){
-		if(buffer[i] == 0x7d){
-			if(buffer[i+1] == 0x5e || buffer[i+1] == 0x5d)
+		if(buffer[i] == BST[0]){
+			if(buffer[i+1] == BST[1] || buffer[i+1] == BST[2])
 				contador++;
 		}
 	}
@@ -504,9 +515,18 @@ int llwrite(int fd, unsigned char* buffer, int length){
 	unsigned char *frame, *stuffed;
 	//int superVisionFrame;
 	int frameLength, i, j, stuffedLength;
+	
 	char bcc2;
+	
+	stuffedLength = getStuffedLength(buffer, length);
+	
+	stuffed = getStuffedData(buffer, length);
 
-	frame = (unsigned char *) malloc(length + 6);
+	frameLength = stuffedLength + 6; //length dos dados mais F,A,C,BCC1,BCC2,F
+
+	bcc2 = getBCC2(buffer, length);
+
+	frame = (unsigned char *) malloc(frameLength);
 	frame[0] = FLAG;
 	frame[1] = AE;
 
@@ -517,12 +537,6 @@ int llwrite(int fd, unsigned char* buffer, int length){
 
 	frame[3] = frame[1]^frame[2];
 
-	bcc2 = getBCC2(buffer, length);
-
-	stuffedLength = getStuffedLength(buffer, length);
-	
-	stuffed = getStuffedData(buffer, length);
-
 	for(i = 4, j = 0; j < stuffedLength; i++, j++){
 		frame[i] = stuffed[j];
 	}
@@ -530,8 +544,6 @@ int llwrite(int fd, unsigned char* buffer, int length){
 	frame[stuffedLength + 4] = bcc2;
 
 	frame[stuffedLength + 5] = FLAG;
-
-	frameLength = stuffedLength + 6; //length dos dados mais F,A,C,BCC1,BCC2,F
 	
 	//while(1){ attempts < getNumTransformations(app)
 
@@ -549,6 +561,12 @@ int llwrite(int fd, unsigned char* buffer, int length){
 		//	return frameLength;
 		//}
 	//}
+
+	int k;
+	for( k = 0; k < frameLength; k++){
+		printf("%x", frame[k]);
+	}
+	printf("\n");
 
 	return frameLength;
 	//return -1;
