@@ -442,6 +442,18 @@ unsigned char *getStuffedData(unsigned char *buffer, int length){
 	return stuffed;
 }
 
+int getStuffedLength(unsigned char *buffer, int length){
+	
+	int i, contador = 0, stuffedLength;
+
+	for(i = 0; i < length; i++){
+		if(buffer[i] == OCTETO1 || buffer[i] == OCTETO2)
+			contador++;
+	}
+	stuffedLength = contador + length;
+	return stuffedLength;
+}
+
 unsigned char *getUnstuffedData(unsigned char *buffer, int length){
 
 	int i, j, contador = 0, unstuffedLength;
@@ -471,13 +483,29 @@ unsigned char *getUnstuffedData(unsigned char *buffer, int length){
 	return unstuffed;
 }
 
+int getUnstuffedLength(unsigned char *buffer, int length){
+	
+	int i, contador = 0, unstuffedLength;
+
+	for(i = 0; i < length; i++){
+		if(buffer[i] == 0x7d){
+			if(buffer[i+1] == 0x5e || buffer[i+1] == 0x5d)
+				contador++;
+		}
+	}
+
+	unstuffedLength = length - contador;
+	return unstuffedLength;	
+} 
+
 // Cria uma trama de informacao
 int llwrite(int fd, unsigned char* buffer, int length){
 
 	//Trama de informacao
-	unsigned char *frame;
+	unsigned char *frame, *stuffed;
 	//int superVisionFrame;
-	int frameLength;
+	int frameLength, i, j, stuffedLength;
+	char bcc2;
 
 	frame = (unsigned char *) malloc(length + 6);
 	frame[0] = FLAG;
@@ -487,7 +515,7 @@ int llwrite(int fd, unsigned char* buffer, int length){
 	else
 		frame[2] = 0x40;
 	frame[3] = frame[1]^frame[2];
-	
+	/*
 	char bcc2 = buffer[0];
 
 	// BBC2
@@ -499,7 +527,20 @@ int llwrite(int fd, unsigned char* buffer, int length){
 			bcc2 = bcc2^buffer[j];
 	}
 	frame[length+4] = bcc2;
-	frame[length+5] = FLAG;
+*/
+	bcc2 = getBCC2(buffer, length);
+
+	stuffedLength = getStuffedLength(buffer, length);
+	
+	stuffed = getStuffedData(buffer, length);
+
+	for(i = 4, j = 0; j < stuffedLength; i++, j++){
+		frame[i] = stuffed[j];
+	}
+
+	frame[stuffedLength + 4] = bcc2;
+
+	frame[stuffedLength + 5] = FLAG;
 
 	frameLength = length + 6; //length dos dados mais F,A,C,BCC1,BCC2,F
 	if(write_frame(fd, frame, length+6) == -1){
@@ -739,8 +780,8 @@ int readDataPackets(){
 
 				dataPacket[i] = buffer[i+4];
 				printf("%x ",dataPacket[i]);
-				//write(getFileDescriptor(app), &dataPacket[i], 1);
 			}
+			write_frame(getTargetDescriptor(app), dataPacket, 4);
 			printf("\n\n");
 
 		} else if(buffer[0] == 2 || buffer[0] == 3){
