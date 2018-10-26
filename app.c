@@ -259,7 +259,6 @@ int receiveSupervisionFrame(int fd){
 	// C
 	if((CFlag == 0 && buffer[2] == RR0) || (CFlag == 1 && buffer[2] == RR1)){
 		printf("RR na Trama de Supervisao");
-		CFlag = (CFlag + 1) % 2;
 		return 1;
 	} else if(buffer[2] == SET){
 		printf("SET na Trama de Supervisao");
@@ -510,24 +509,14 @@ int llwrite(int fd, unsigned char* buffer, int length){
 	frame = (unsigned char *) malloc(length + 6);
 	frame[0] = FLAG;
 	frame[1] = AE;
+
 	if(CFlag == 0)
 		frame[2] = 0x00;
 	else
 		frame[2] = 0x40;
+
 	frame[3] = frame[1]^frame[2];
-	/*
-	char bcc2 = buffer[0];
 
-	// BBC2
-	int i = 4, j = 0;
-	for(; j < length; i++, j++){
-		frame[i] = buffer[j];
-
-		if(j != 0)
-			bcc2 = bcc2^buffer[j];
-	}
-	frame[length+4] = bcc2;
-*/
 	bcc2 = getBCC2(buffer, length);
 
 	stuffedLength = getStuffedLength(buffer, length);
@@ -542,19 +531,27 @@ int llwrite(int fd, unsigned char* buffer, int length){
 
 	frame[stuffedLength + 5] = FLAG;
 
-	frameLength = length + 6; //length dos dados mais F,A,C,BCC1,BCC2,F
-	if(write_frame(fd, frame, length+6) == -1){
-		printf("Error writting frame\n");
-		return -1;
-	}
-/*
-	int k;
-	for(k = 0; k < length+6; k++){
-		printf("%x", frame[k]);
-	}
-	printf("\n");*/
+	frameLength = stuffedLength + 6; //length dos dados mais F,A,C,BCC1,BCC2,F
+	
+	//while(1){ attempts < getNumTransformations(app)
+
+		if(write_frame(fd, frame, frameLength) == -1){
+			printf("Error writting frame\n");
+			return -1;
+		}
+
+		//alarm(getTimeOut(app));
+
+		//if(receiveSupervisionFrame() == 1){
+		// attempts = 0;
+		//alarm(0);
+		//	CFlag = (CFlag + 1) % 2;
+		//	return frameLength;
+		//}
+	//}
 
 	return frameLength;
+	//return -1;
 }
 
 
@@ -569,6 +566,7 @@ int sendFileInfo(char * fileName, int control) {
 	fstat(getTargetDescriptor(app), &st);
 
 	sizeOfFile = st.st_size;
+	//printf("sizeOfFile: %x ", sizeOfFile);
 
 	startLength = 7 + sizeof(off_t) + strlen(fileName);
 	controlStart = (unsigned char *)malloc(sizeof(unsigned char)*startLength);
@@ -577,7 +575,7 @@ int sendFileInfo(char * fileName, int control) {
 	controlStart[1] = SIZE_PARAMETER;
 	controlStart[2] = sizeof(off_t);
 
-	memcpy(&controlStart[3], &sizeOfFile, 8);
+	memcpy(&controlStart[3], &sizeOfFile, sizeof(off_t));
 
 	controlStart[3+sizeof(off_t)] = NAME_PARAMETER;
 	controlStart[4+sizeof(off_t)] = strlen(fileName);
@@ -603,7 +601,7 @@ int sendFileData(int fileSize){
 
 	int fileSizeAux, bytes = 0, bytesRead = 0, nSeq = 0;
 	unsigned char *buffer, bufferFile[4];
-	int k;
+
 	//int packetSent = 0;
 
 	fileSizeAux = fileSize;
@@ -633,10 +631,11 @@ int sendFileData(int fileSize){
 
 		bytes += bytesRead;
 		nSeq++;
-
+/*
+		int k;
 		for(k = 0; k < (bytesRead+4); k++)
-			printf(" %x ", buffer[k]);
-		printf("\n");
+			printf(" %c ", buffer[k]);
+		printf("\n");*/
 	}
 
 	close(getTargetDescriptor(app));
@@ -767,7 +766,7 @@ int readDataPackets(){
 
 		if(buffer[0] == 1){
 		
-			printf("Pacote de dados				");
+			//printf("Pacote de dados				");
 			//if(buffer[1] == 0xFF)
 			//	return -1;
 
@@ -775,28 +774,23 @@ int readDataPackets(){
 			int k = 256 * buffer[2] + buffer[3];
 
 			int i;
-			printf("dataPacket: ");
+			//printf("dataPacket: ");
 			for(i = 0; i < k; i++){
 
 				dataPacket[i] = buffer[i+4];
-				printf("%x ",dataPacket[i]);
+				//printf("%x ",dataPacket[i]);
 			}
 			write_frame(getTargetDescriptor(app), dataPacket, 4);
-			printf("\n\n");
+			//printf("\n\n");
 
 		} else if(buffer[0] == 2 || buffer[0] == 3){
-
-			//2 0 8 d8 2a 0 0 0 0 0 0 1 d 2e 2f 70 69 6e 67 75 69 6d 2e 67 69 66 0 0 - Pacote de controlo start
-//		      	  c t l |tamanho do file| t l |		nome do file	           |
-
-
 
 			printf("\n\n\n\n");
 			int i;
 			unsigned char l = 0;
 			unsigned char lLast = l;
 			unsigned char t = 0;
-			unsigned char fileSize;
+			long int fileSize;
 
 			for(i = 0; i < 2; i++){
 
@@ -807,18 +801,14 @@ int readDataPackets(){
 				if(t == 0){
 
 					fileSize = 0x00;
-					int k;
-					printf("l = %x\n", l);
+					int k;;
 					for(k = 0; k < l; k++){
-						
-						// Começa no ultimo byte 
-						fileSize |= buffer[1 + i*(1+1+l) + 1 - k] << 8*k;
+
+						fileSize |= buffer[10-k] << 8*(7-k);
 					}
-					printf("\n\nfileSize: %x\n", fileSize);
 
 				} else if(t == 1){
 
-					// Ja confirmei e o filename está a ficar correto
 					filename = malloc(l + 1);
 					int k;
 					for(k = 0; k < l; k++){
@@ -860,7 +850,7 @@ int readDataPackets(){
 		}
 	}
 
-	printf("IM OUT BITCHESSSSSSSSSSSSSSSSSS\n");
+	printf("Exited readDataPackets");
 	return 0;
 }
 
