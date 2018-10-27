@@ -20,9 +20,10 @@
 
 typedef struct {
   int state;
+  unsigned char parameter;
 } statemachine;
 
-statemachine * newStateMachine();
+statemachine * newStateMachine(unsigned char Cparameter);
 
 void resetStateMachine(statemachine *a);
 

@@ -185,37 +185,6 @@ int write_frame(int fd, unsigned char *frame, unsigned int length){
 	return total;
 }
 
-int llopen(int path, int mode) {
-
-	initializeStateMachine(linkL);
-
-	switch(mode) {
-		case RECEIVER:
-			while(waitForData(path) == FALSE) {}
-			printf("Data received \n");
-			sendSetMessage(path);
-		break;
-		case TRANSMITTER:
-			while(getNumberOFTries(linkL) < getnumTransformations(linkL)){
-				if(getFlag(linkL) == 0) {
-					sendSetMessage(path);
-					alarm(getTimeout(linkL));
-					setFlag(linkL, 1);
-				}
-				if(waitForData(path) == TRUE){
-					alarm(0);
-					return TRUE;
-				}
-			}
-			return FALSE;
-		break;
-		default:
-			return FALSE;
-	}
-
-	return TRUE;
-}
-
 // Error/Rej: -1
 // RR: 1
 // SET: 2
@@ -325,43 +294,6 @@ void sendSupervisionFrame(unsigned char controlField, int fd){
 	write_frame(fd, buffer, 5);
 }
 
-// Retorna 1 em caso de sucesso
-// Retorna -1 em caso de erro
-int llclose(int fd, int mode){
-
-	//setState(linkL?, FINAL_STATE?);
-
-	switch(mode){
-
-		case RECEIVER:
-			while(1){				//trocar a condição
-
-				if(receiveSupervisionFrame(getFileDescriptor(app) != 3))
-					return -1;
-				sendSupervisionFrame(DISC, getFileDescriptor(app));
-				if(receiveSupervisionFrame(getFileDescriptor(app) != 4))
-					return -1;
-				}
-			return 1;
-		break;
-
-		case TRANSMITTER:
-			while(1){				//trocar a condição
-
-				sendSupervisionFrame(DISC, getFileDescriptor(app));
-				if(receiveSupervisionFrame(getFileDescriptor(app) != 3))
-					return -1;
-				sendSupervisionFrame(UA, getFileDescriptor(app));
-				}
-			return 1;
-		break;
-		default:
-			return 1;
-	}
-
-	return 1;
-}
-
 void sigint_handler(int signo) {
 	printf("Ctrl+C received\n");
 
@@ -398,17 +330,6 @@ void configureLinkLayer(char * path) {
 void installSignalHandlers() {
 	signal(SIGINT, sigint_handler);
 	(void) signal(SIGALRM, atende);
-}
-
-void createConnection() {
-	if(llopen(getFileDescriptor(app), getStatus(app)) == TRUE) {
-		printf("Connection established!\n");
-	} else {
-		perror("connection failed!\n");
-		resetPortConfiguration(app);
-		close(getFileDescriptor(app));
-		exit(-1);
-	}
 }
 
 unsigned char getBCC2(unsigned char *buffer, int length){
@@ -577,8 +498,8 @@ int llwrite(int fd, unsigned char* buffer, int length){
 		//}
 	//}
 
-	printf("Unstuffed: %x ", frame[stuffedLength + 4]);
-	printf("\n");
+	// printf("Unstuffed: %x ", frame[stuffedLength + 4]);
+	// printf("\n");
 
 	return frameLength;
 	//return -1;
@@ -862,6 +783,93 @@ int readDataPackets(){
 	return 0;
 }
 
+int llopen(int path, int mode) {
+
+	initializeStateMachine(linkL, SET);
+
+	switch(mode) {
+		case RECEIVER:
+			while(waitForData(path) == FALSE) {/*printf("\r Waiting.");fflush(stdout);*/}
+			printf("Data received \n");
+			sendSupervisionFrame(SET, getFileDescriptor(app));
+			return TRUE;
+		case TRANSMITTER:
+			resetTries(linkL);
+			setFlag(linkL, 0);
+			while(getNumberOFTries(linkL) < getnumTransformations(linkL)){
+				if(getFlag(linkL) == 0) {
+					sendSupervisionFrame(SET, getFileDescriptor(app));
+					alarm(getTimeout(linkL));
+					setFlag(linkL, 1);
+				}
+				if(waitForData(path) == TRUE){
+					alarm(0);
+					return TRUE;
+				}
+			}
+			return FALSE;
+		default:
+			return TRUE;
+	}
+
+	return TRUE;
+}
+
+// Retorna 1 em caso de sucesso
+// Retorna -1 em caso de erro
+int llclose(int path, int mode) {
+
+	initializeStateMachine(linkL, DISC);
+
+	switch(mode){
+		case RECEIVER:
+			while(waitForData(path) == FALSE) {}
+			sendSupervisionFrame(DISC, getFileDescriptor(app));
+			initializeStateMachine(linkL, UA);
+			while(waitForData(path) == FALSE) {}
+			return TRUE;
+		case TRANSMITTER:
+			resetTries(linkL);
+			setFlag(linkL, 0);
+			while(getNumberOFTries(linkL) < getnumTransformations(linkL)) {
+				if(getFlag(linkL) == 0) {
+					sendSupervisionFrame(DISC, getFileDescriptor(app));
+					alarm(getTimeout(linkL));
+					setFlag(linkL, 1);
+				}
+				if(waitForData(path) == TRUE) {
+					alarm(0);
+					sendSupervisionFrame(UA, getFileDescriptor(app));
+					return TRUE;
+				}
+			}
+			return FALSE;
+		default:
+			return FALSE;
+	}
+
+	return FALSE;
+}
+
+void createConnection() {
+	if(llopen(getFileDescriptor(app), getStatus(app)) == TRUE) {
+		printf("Connection established!\n");
+	} else {
+		perror("connection failed!\n");
+		resetPortConfiguration(app);
+		close(getFileDescriptor(app));
+		exit(-1);
+	}
+}
+
+void closeConnection() {
+	printf("Trying to close connection.\n");
+	if(llclose(getFileDescriptor(app), getStatus(app)) == 1) {
+		printf("Connection closed successfully!\n");
+	} else {
+		printf("Failed to closeconnection!\n");
+	}
+}
 
 int main(int argc, char** argv) {
 
@@ -878,15 +886,17 @@ int main(int argc, char** argv) {
 	createConnection();
 
 	if(getStatus(app) == TRANSMITTER) {
-		sendFile();
+		//sendFile();
 	}
 
 	else if(getStatus(app) == RECEIVER){
-		readDataPackets();
+		//readDataPackets();
 	}
 	else {
 		perror("Wrong mode!\n");
 	}
+
+	closeConnection();
 
 	sleep(1);
 	resetPortConfiguration(app);

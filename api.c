@@ -36,6 +36,10 @@ void setFlag(linkLayer *a, unsigned short v) {
 	a->flag = v;
 }
 
+void resetTries(linkLayer *a) {
+	a->tries = 0;
+}
+
 
 //GETS
 linkLayer * getLinkLayer(unsigned short nTries, unsigned short timeout, char * port) {
@@ -45,7 +49,7 @@ linkLayer * getLinkLayer(unsigned short nTries, unsigned short timeout, char * p
 
 	a->numTransformations = nTries;
 
-	a->tries = 1;
+	a->tries = 0;
 
 	return a;
 }
@@ -82,8 +86,11 @@ char * getFrame(linkLayer *ll){
 	return ll->frame;
 }
 
-void initializeStateMachine(linkLayer *a) {
-	a->controller = newStateMachine();
+void initializeStateMachine(linkLayer *a, unsigned char parameter) {
+	if(a->controller) {
+		free(a->controller);
+	}
+	a->controller = newStateMachine(parameter);
 }
 
 //DESTRUCTORS

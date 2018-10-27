@@ -2,15 +2,13 @@
 
 //VER REPOSITIORIO DE PROG 2 NO GitHub
 
-statemachine * newStateMachine() {
+statemachine * newStateMachine(unsigned char Cparameter) {
 
   statemachine *t = (statemachine*) malloc(sizeof(statemachine));
 
-  return t;
-}
+  t->parameter = Cparameter;
 
-void resetStateMachine(statemachine *a) {
-  a->state = 0;
+  return t;
 }
 
 void setState(statemachine *a, int newState) {
@@ -21,7 +19,12 @@ int getMachineState(statemachine *a) {
   return a->state;
 }
 
+void resetStateMachine(statemachine *a) {
+  a->state = 0;
+}
+
 void interpretSignal(statemachine *a, unsigned char s) {
+
   switch(a->state) {
     case START_STATE:
       if(s == FLAG) {
@@ -38,7 +41,7 @@ void interpretSignal(statemachine *a, unsigned char s) {
       }
       break;
     case A_STATE:
-      if(s == SET) {
+      if(s == a->parameter) {
         setState(a, C_STATE);
       }
       else if(s == FLAG) {
@@ -49,7 +52,7 @@ void interpretSignal(statemachine *a, unsigned char s) {
       }
       break;
     case C_STATE:
-      if(s == (AE^SET)) {
+      if(s == (AE^(a->parameter))) {
         setState(a, BCC_STATE);
       }
       else{
