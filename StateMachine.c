@@ -37,7 +37,7 @@ int getMachineState(statemachine *a) {
 }
 
 void resetStateMachine(statemachine *a) {
-  a->state = 0;
+  a->state = START_STATE;
 }
 
 void interpretSignal(statemachine *a, unsigned char s) {
