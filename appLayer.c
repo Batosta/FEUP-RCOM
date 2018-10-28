@@ -16,6 +16,7 @@ int getTargetDescriptor(applicationLayer *a) {
 }
 
 void setTargetDescriptor(applicationLayer *a, int fd) {
+	printf("TARGET DEFINED\n");
 	a->targetFileDescriptor = fd;
 }
 

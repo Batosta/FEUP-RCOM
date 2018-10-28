@@ -149,7 +149,7 @@ int waitForData(int path) {
 /*
 	Função que tenta dar write dos frames.
 */
-int write_frame(int fd, unsigned char *frame, unsigned int length){
+int write_frame(int fd, unsigned char *frame, unsigned int length) {
 	int aux, total = 0;
 
 	while(total < length){
@@ -160,14 +160,10 @@ int write_frame(int fd, unsigned char *frame, unsigned int length){
 
 		total += aux;
 	}
+
 	return total;
 }
 
-// Error/Rej: -1
-// RR: 1
-// SET: 2
-// DISC: 3
-// UA: 4
 int receiveSupervisionFrame(int fd){
 
 	unsigned char *buffer;
@@ -229,9 +225,7 @@ int receiveSupervisionFrame(int fd){
 }
 
 // Sends a supervision frame to the emissor with the answer
-void sendSupervisionFrame(unsigned char controlField, int fd){
-
-	printf("Started creating the supervision frame\n");
+void sendSupervisionFrame(unsigned char controlField, int fd) {
 
 	unsigned char buffer[5];
 
@@ -259,7 +253,6 @@ void sendSupervisionFrame(unsigned char controlField, int fd){
 		perror("Invalid mode\n");
     exit(-11);
 	}
-
 
 	// C
 	buffer[2] = controlField;
@@ -341,14 +334,14 @@ unsigned char *getStuffedData(unsigned char *buffer, int length){
 
 	for(i = 0, j = 0; i < length; i++){
 
-		if(buffer[i] == OCTETO1){
+		if(buffer[i] == OCTETO1) {
 
 			stuffed[j] = BST[0];
 			j++;
 			stuffed[j] = BST[1];
 			j++;
 
-		}else if(buffer[i] == OCTETO2){
+		}else if(buffer[i] == OCTETO2) {
 
 			stuffed[j] = BST[0];
 			j++;
@@ -495,7 +488,6 @@ int sendFileInfo(char * fileName, int control) {
 	fstat(getTargetDescriptor(app), &st);
 
 	sizeOfFile = st.st_size;
-	//printf("sizeOfFile: %x ", sizeOfFile);
 
 	startLength = 7 + sizeof(off_t) + strlen(fileName);
 	controlStart = (unsigned char *)malloc(sizeof(unsigned char)*startLength);
@@ -509,8 +501,9 @@ int sendFileInfo(char * fileName, int control) {
 	controlStart[3+sizeof(off_t)] = NAME_PARAMETER;
 	controlStart[4+sizeof(off_t)] = strlen(fileName);
 
-	for(i = 5 + sizeof(off_t), j = 0; j < strlen(fileName); i++, j++)
+	for(i = 5 + sizeof(off_t), j = 0; j < strlen(fileName); i++, j++) {
 		controlStart[i] = fileName[j];
+	}
 
 	//Acabamos de fazer o Data packet de Start
 	if(llwrite(getFileDescriptor(app), controlStart, startLength) < 0){
@@ -574,10 +567,6 @@ void sendFile() {
 	sendFileData(sizeFile);//Tramas de dados do ficheiro
 
 	sizeFile = sendFileInfo(getFileName(app), END_C);//Trama de controlo END
-
-	//Obter tamanho, nome do ficheiro e permissões e enviar
-	//Depois comecar a enviar tramas dos bytes lidos no FICHEIRO
-	//enviar pacote de controlo com END
 }
 
 int llread(unsigned char * buffer){
@@ -618,7 +607,7 @@ int llread(unsigned char * buffer){
 		buffer[j] = unstuffedData[j];
 	}
 
-	printf("exp: %x    frame: %x\n", expectedBCC2, frame[i-1]);
+	//printf("exp: %x    frame: %x\n", expectedBCC2, frame[i-1]);
 	if(frame[i-1] != expectedBCC2){
 		printf("Error in BCC2.\n");
 		return -1;
@@ -659,10 +648,11 @@ int readDataPackets(){
 	unsigned char buffer[200];
 	unsigned char dataPacket[200];
 	int dataSize = 0;
+	int receivedBytes = 0;
+	long int fileSize;
 
-	while(1){
+	do {
 
-		printf("\n");
 		if((dataSize = llread(buffer)) == -1){
 
 			if(CFlag == 0){
@@ -686,17 +676,18 @@ int readDataPackets(){
 
 			int i;
 			for(i = 0; i < k; i++){
-
 				dataPacket[i] = buffer[i+4];
 			}
+
 			write_frame(getTargetDescriptor(app), dataPacket, 4);
+			receivedBytes += 4;
 		}
-		else if(buffer[0] == 2 || buffer[0] == 3){ // C = 2 -> Pacote de controlo start  //  C = 3 -> Pacote de controlo end
+		else if(buffer[0] == 2){ // C = 2 -> Pacote de controlo start  //  C = 3 -> Pacote de controlo end
 
 			unsigned char l = 0;
 			unsigned char lLast = l;
 			unsigned char t = 0;
-			long int fileSize;
+
 
 			int i;
 			for(i = 0; i < 2; i++){
@@ -713,6 +704,8 @@ int readDataPackets(){
 						fileSize |= buffer[10-k] << 8*(7-k);
 					}
 
+					printf("\nFILE SIZE: %ld\n", fileSize);
+
 				} else if(t == 1){	// Nome do ficheiro - Funciona
 
 					filename = malloc(l + 1);
@@ -722,6 +715,8 @@ int readDataPackets(){
 						filename[k] = buffer[1 + i*(1+1+lLast) + 2 + k];
 					}
 					filename[k] = 0;
+
+					printf("FILE NAME: %s\n", filename);
 
 					setTargetDescriptor(app, open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0777));
 
@@ -743,21 +738,13 @@ int readDataPackets(){
 				//sendSupervisionFrame(RR1, getFileDescriptor(app));
 			}
  			//CFlag = (CFlag + 1) % 2;
-
-			if(buffer[0] == 3){
-				printf("3 end\n");
-				//sendSupervisionFrame(DISC, getFileDescriptor(app));
-				break;
-			}
-
-		} else{
-
-			printf("buffer[0] with unknown value\n");
-			return -1;
 		}
-	}
+		printf("\rRECEIVING DATA: %d %%", (int)(1.0 * receivedBytes / fileSize * 100));
+		fflush(stdout);
+	} while(buffer[0] != 3);
 
-	printf("Out of the while\n");
+	printf("\rFile received!");
+	fflush(stdout);;
 	return 0;
 }
 
@@ -767,7 +754,6 @@ int llopen(int path, int mode) {
 		case RECEIVER:
 			initializeStateMachine(linkL, SET, RECEIVER);
 			while(waitForData(path) == FALSE) {/*printf("\r Waiting.");fflush(stdout);*/}
-			printf("Data received \n");
 			sendSupervisionFrame(SET, getFileDescriptor(app));
 			return TRUE;
 		case TRANSMITTER:
@@ -841,9 +827,8 @@ void createConnection() {
 }
 
 void closeConnection() {
-	printf("Trying to close connection.\n");
 	if(llclose(getFileDescriptor(app), getStatus(app)) == 1) {
-		printf("Connection closed successfully!\n");
+		printf("\nConnection closed successfully!\n");
 	} else {
 		printf("Failed to closeconnection!\n");
 	}
@@ -864,11 +849,11 @@ int main(int argc, char** argv) {
 	createConnection();
 
 	if(getStatus(app) == TRANSMITTER) {
-		//sendFile();
+		sendFile();
 	}
 
 	else if(getStatus(app) == RECEIVER){
-		//readDataPackets();
+		readDataPackets();
 	}
 	else {
 		perror("Wrong mode!\n");
