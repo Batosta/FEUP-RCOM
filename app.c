@@ -146,28 +146,6 @@ int waitForData(int path) {
 	}
 }
 
-int sendSetMessage(int path) {
-	unsigned char setMessage[5];
-	int writtenBytes = 0;
-
-	setMessage[0] = FLAG;
-	setMessage[1] = AE;
-	setMessage[2] = SET;	// If this was the receptor SET[2] would be 0x01
-	setMessage[3] = setMessage[1]^setMessage[2];
-	setMessage[4] = FLAG;
-
-	//ESCREVER UM BYTE DE CADA VEZ
-
-	writtenBytes = write(path, setMessage, 5);
-
-
-	if(writtenBytes != 5) {
-		return FALSE;
-	}
-
-	return TRUE;
-}
-
 /*
 	Função que tenta dar write dos frames.
 */
@@ -785,15 +763,15 @@ int readDataPackets(){
 
 int llopen(int path, int mode) {
 
-	initializeStateMachine(linkL, SET);
-
 	switch(mode) {
 		case RECEIVER:
+			initializeStateMachine(linkL, SET, RECEIVER);
 			while(waitForData(path) == FALSE) {/*printf("\r Waiting.");fflush(stdout);*/}
 			printf("Data received \n");
 			sendSupervisionFrame(SET, getFileDescriptor(app));
 			return TRUE;
 		case TRANSMITTER:
+			initializeStateMachine(linkL, SET, TRANSMITTER);
 			resetTries(linkL);
 			setFlag(linkL, 0);
 			while(getNumberOFTries(linkL) < getnumTransformations(linkL)){
@@ -819,16 +797,16 @@ int llopen(int path, int mode) {
 // Retorna -1 em caso de erro
 int llclose(int path, int mode) {
 
-	initializeStateMachine(linkL, DISC);
-
 	switch(mode){
 		case RECEIVER:
+			initializeStateMachine(linkL, DISC, RECEIVER);
 			while(waitForData(path) == FALSE) {}
 			sendSupervisionFrame(DISC, getFileDescriptor(app));
-			initializeStateMachine(linkL, UA);
+			initializeStateMachine(linkL, UA, RECEIVER);
 			while(waitForData(path) == FALSE) {}
 			return TRUE;
 		case TRANSMITTER:
+			initializeStateMachine(linkL, DISC, TRANSMITTER);
 			resetTries(linkL);
 			setFlag(linkL, 0);
 			while(getNumberOFTries(linkL) < getnumTransformations(linkL)) {

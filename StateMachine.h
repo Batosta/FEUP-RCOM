@@ -11,6 +11,9 @@
 #define DISC 0x0B
 #define UA 0x07
 
+#define TRANSMITTER 1
+#define RECEIVER 0
+
 #define START_STATE 0
 #define FLAG_STATE 1
 #define A_STATE 2
@@ -21,9 +24,10 @@
 typedef struct {
   int state;
   unsigned char parameter;
+  unsigned char expectedAbyte;
 } statemachine;
 
-statemachine * newStateMachine(unsigned char Cparameter);
+statemachine * newStateMachine(unsigned char Cparameter, int mode);
 
 void resetStateMachine(statemachine *a);
 

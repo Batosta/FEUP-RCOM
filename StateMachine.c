@@ -2,11 +2,28 @@
 
 //VER REPOSITIORIO DE PROG 2 NO GitHub
 
-statemachine * newStateMachine(unsigned char Cparameter) {
+statemachine * newStateMachine(unsigned char Cparameter, int mode) {
 
   statemachine *t = (statemachine*) malloc(sizeof(statemachine));
 
   t->parameter = Cparameter;
+
+  if(mode == TRANSMITTER) {
+    if(t->parameter == SET || t->parameter == DISC) {
+      t->expectedAbyte = AR;
+    }
+    else {
+      t->expectedAbyte = AE;
+    }
+  }
+  else {
+    if(t->parameter == SET || t->parameter == DISC) {
+      t->expectedAbyte = AE;
+    }
+    else {
+      t->expectedAbyte = AR;
+    }
+  }
 
   return t;
 }
@@ -32,7 +49,7 @@ void interpretSignal(statemachine *a, unsigned char s) {
       }
       break;
     case FLAG_STATE:
-      if(s == AE) {
+      if(s == a->expectedAbyte) {
         setState(a, A_STATE);
       }
       else if(s == FLAG) {}
@@ -52,7 +69,7 @@ void interpretSignal(statemachine *a, unsigned char s) {
       }
       break;
     case C_STATE:
-      if(s == (AE^(a->parameter))) {
+      if(s == ((a->expectedAbyte)^(a->parameter))) {
         setState(a, BCC_STATE);
       }
       else{

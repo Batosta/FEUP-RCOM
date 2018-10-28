@@ -86,11 +86,11 @@ char * getFrame(linkLayer *ll){
 	return ll->frame;
 }
 
-void initializeStateMachine(linkLayer *a, unsigned char parameter) {
+void initializeStateMachine(linkLayer *a, unsigned char parameter, int mode) {
 	if(a->controller) {
 		free(a->controller);
 	}
-	a->controller = newStateMachine(parameter);
+	a->controller = newStateMachine(parameter, mode);
 }
 
 //DESTRUCTORS
