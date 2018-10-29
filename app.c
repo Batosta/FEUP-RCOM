@@ -164,65 +164,6 @@ int write_frame(int fd, unsigned char *frame, unsigned int length) {
 	return total;
 }
 
-int receiveSupervisionFrame(int fd){
-
-	unsigned char *buffer;
-	buffer = (unsigned char *) malloc(sizeof(char)*5);
-
-	int r;
-	r = read(fd, buffer, sizeof(char)*5);
-	if(r < 0){
-		printf("Erro no tamanho da Trama de Supervisao");
-		return -1;
-	}
-
-	// FLAG
-	if(buffer[0] != FLAG){
-		printf("Erro na FLAG_1 da Trama de Supervisao");
-		return -1;
-	}
-
-	// A
-	if(buffer[1] != AE){
-		printf("Erro no A da Trama de Supervisao");
-		return -1;
-	}
-
-	// BCC
-	if(buffer[3] != (buffer[1]^buffer[2])){
-		printf("Erro no BCC da Trama de Supervisao");
-		return -1;
-	}
-
-	// FLAG
-	if(buffer[4] != FLAG){
-		printf("Erro na FLAG_2 da Trama de Supervisao");
-		return -1;
-	}
-
-	// C
-	if((CFlag == 0 && buffer[2] == RR0) || (CFlag == 1 && buffer[2] == RR1)){
-		printf("RR na Trama de Supervisao");
-		return 1;
-	} else if(buffer[2] == SET){
-		printf("SET na Trama de Supervisao");
-		return 2;
-	}
-	else if(buffer[2] == DISC){
-		printf("DISC na Trama de Supervisao");
-		return 3;
-	}
-	else if(buffer[2] == UA){
-		printf("UA na Trama de Supervisao");
-		return 4;
-	}
-	else{
-		printf("Erro na Trama de Supervisao");
-		return -1;
-	}
-
-	return -1;
-}
 
 // Sends a supervision frame to the emissor with the answer
 void sendSupervisionFrame(unsigned char controlField, int fd) {
@@ -311,7 +252,7 @@ unsigned char getBCC2(unsigned char *buffer, int length){
 	bcc2 = buffer[0];
 
 	for(i = 1; i < length; i++){
-		bcc2 ^= buffer[i];
+		bcc2 = bcc2^buffer[i];
 	}
 
 	return bcc2;
@@ -324,8 +265,10 @@ unsigned char *getStuffedData(unsigned char *buffer, int length){
 
 
 	for(i = 0; i < length; i++){
-		if(buffer[i] == OCTETO1 || buffer[i] == OCTETO2)
+		if(buffer[i] == OCTETO1 || buffer[i] == OCTETO2) {
 			contador++;
+		}
+
 	}
 
 	stuffedLength = contador + length;
@@ -334,18 +277,18 @@ unsigned char *getStuffedData(unsigned char *buffer, int length){
 
 	for(i = 0, j = 0; i < length; i++){
 
-		if(buffer[i] == OCTETO1) {
+		if(buffer[i] == 0x7e) {
 
-			stuffed[j] = BST[0];
+			stuffed[j] = 0x7d;
 			j++;
-			stuffed[j] = BST[1];
+			stuffed[j] = 0x5e;
 			j++;
 
-		}else if(buffer[i] == OCTETO2) {
+		}else if(buffer[i] == 0x7d) {
 
-			stuffed[j] = BST[0];
+			stuffed[j] = 0x7d;
 			j++;
-			stuffed[j] = BST[2];
+			stuffed[j] = 0x5d;
 			j++;
 
 		}else{
@@ -376,9 +319,10 @@ unsigned char *getUnstuffedData(unsigned char *buffer, int length){
 	unsigned char *unstuffed;
 
 	for(i = 0; i < length; i++){
-		if(buffer[i] == BST[0]){
-			if(buffer[i+1] == BST[1] || buffer[i+1] == BST[2])
+		if(buffer[i] == 0x7d){
+			if(buffer[i+1] == 0x5e || buffer[i+1] == 0x5d) {
 				contador++;
+			}
 		}
 	}
 
@@ -387,11 +331,11 @@ unsigned char *getUnstuffedData(unsigned char *buffer, int length){
 	unstuffed = (unsigned char*)malloc(unstuffedLength);
 
 	for(i = 0, j = 0; i < length; i++, j++){
-		if(buffer[i] == BST[0] && buffer[i+1] == BST[1]){
-			unstuffed[j] = OCTETO1;
+		if(buffer[i] == 0x7d && buffer[i+1] ==  0x5e){
+			unstuffed[j] = 0x7e;
 			i++;
-		}else if(buffer[i] == BST[0] && buffer[i+1] == BST[2]){
-			unstuffed[j] = OCTETO2;
+		}else if(buffer[i] == 0x7d && buffer[i+1] ==  0x5d){
+			unstuffed[j] = 0x7d;
 			i++;
 		}else
 			unstuffed[j] = buffer[i];
@@ -404,14 +348,26 @@ int getUnstuffedLength(unsigned char *buffer, int length){
 	int i, contador = 0, unstuffedLength;
 
 	for(i = 0; i < length; i++){
-		if(buffer[i] == BST[0]){
-			if(buffer[i+1] == BST[1] || buffer[i+1] == BST[2])
+		if(buffer[i] == 0x7d){
+			if(buffer[i+1] ==  0x5e || buffer[i+1] ==  0x5d)
 				contador++;
 		}
 	}
 
 	unstuffedLength = length - contador;
 	return unstuffedLength;
+}
+
+unsigned char * appendBCC2(unsigned char* buffer, int length, unsigned char bcc) {
+	unsigned char * frame;
+
+	frame = (unsigned char*)malloc((length + 1)*sizeof(unsigned char));
+
+	memcpy(frame, buffer, length);
+
+	frame[length] = bcc;
+
+	return frame;
 }
 
 // Cria uma trama de informacao
@@ -428,11 +384,15 @@ int llwrite(int fd, unsigned char* buffer, int length){
 
 	bcc2 = getBCC2(buffer, length);
 
+	buffer = appendBCC2(buffer, length, bcc2);
+
+	length++;
+
 	stuffedLength = getStuffedLength(buffer, length);
 
 	stuffed = getStuffedData(buffer, length);
 
-	frameLength = stuffedLength + 6; //length dos dados mais F,A,C,BCC1,BCC2,F
+	frameLength = stuffedLength + 5; //length dos dados mais F,A,C,BCC1,BCC2,F
 
 	frame = (unsigned char *) malloc(frameLength);
 
@@ -452,9 +412,7 @@ int llwrite(int fd, unsigned char* buffer, int length){
 		frame[i] = stuffed[j];
 	}
 
-	frame[stuffedLength + 4] = bcc2;
-
-	frame[stuffedLength + 5] = FLAG;
+	frame[stuffedLength + 4] = FLAG;
 
 	setFlag(linkL, 0);
 
@@ -494,9 +452,6 @@ int llwrite(int fd, unsigned char* buffer, int length){
 	}
 
 	alarm(0);
-
-	printf("\n\rRR received!");
-	fflush(stdout);
 
 	return frameLength;
 }
@@ -544,7 +499,6 @@ int sendFileData(int fileSize){
 	int fileSizeAux, bytes = 0, bytesRead = 0, nSeq = 0;
 	unsigned char *buffer, bufferFile[4];
 
-	//int packetSent = 0;
 
 	fileSizeAux = fileSize;
 	buffer = (unsigned char*) malloc(8); //[C,N,L2,L1,P1...PK]
@@ -559,7 +513,7 @@ int sendFileData(int fileSize){
 		}
 
 		buffer[0] = DATA_C;
-		buffer[1] = (unsigned char)nSeq%255; //Nao sei se e necessario mudar para char
+		buffer[1] = (unsigned char)nSeq%256; //Nao sei se e necessario mudar para char
 		buffer[2] = 4/8;
 		buffer[3] = 4%8;
 
@@ -571,6 +525,7 @@ int sendFileData(int fileSize){
 		}
 
 		memset(bufferFile, 0, 4);
+		memset(buffer, 0, 8);
 
 		bytes += bytesRead;
 		nSeq++;
@@ -594,8 +549,9 @@ void sendFile() {
 
 int analyseFrameHeader(unsigned char * frame, int length, unsigned char expectedBCC2) {
 	//printf("exp: %x    frame: %x\n", expectedBCC2, frame[length-1]);
-	if(frame[length-1] != expectedBCC2){
-		printf("Error in BCC2.\n");
+	if(frame[length-2] != expectedBCC2){
+		//printf("Error in BCC2.\n");
+		printf("exp: %x    frame: %x\n", expectedBCC2, frame[length-1]);
 		return -1;
 	}
 
@@ -619,7 +575,7 @@ int analyseFrameHeader(unsigned char * frame, int length, unsigned char expected
 		return -1;
 	}
 
-	if(frame[length] != FLAG){
+	if(frame[length-1] != FLAG){
 		printf("Error in FLAG_2.\n");
 		return -1;
 	}
@@ -634,6 +590,7 @@ int llread(unsigned char * buffer){
 		unsigned char *unstuffedData;		// Dados destuffed/originais
 		unsigned char expectedBCC2;		// BCC2 que é esperado
 		unsigned char answer;
+		unsigned char *aux;
 
 
 		int i; // Assume o valor do tamanho da trama stuffed
@@ -646,8 +603,7 @@ int llread(unsigned char * buffer){
 		}
 
 		int k;	// Assume o valor do tamanho da data stuffed
-		for(k = 4; k < i-1; k++){
-
+		for(k = 4; k < i; k++) {
 			stuffedData[k-4] = frame[k];
 		}
 
@@ -656,18 +612,25 @@ int llread(unsigned char * buffer){
 		unstuffedData = (unsigned char *) malloc(unstuffedLength);
 		unstuffedData = getUnstuffedData(stuffedData, k-4);
 
+		expectedBCC2 = getBCC2(unstuffedData, unstuffedLength-1);
 
-		buffer[0] = unstuffedData[0];
-		expectedBCC2 = unstuffedData[0];
 		int j;
-		for(j = 1; j < unstuffedLength; j++){
 
-			expectedBCC2 ^= unstuffedData[j];
+		aux = (unsigned char *)malloc((5+unstuffedLength)*sizeof(unsigned char));
+
+		memcpy(aux, frame, 4);
+
+		for(j=4; j-4 < unstuffedLength; j++) {
+			aux[j] = unstuffedData[j-4];
+		}
+
+		aux[unstuffedLength+4] = FLAG;
+
+		for(j = 0; j < unstuffedLength - 1; j++){
 			buffer[j] = unstuffedData[j];
 		}
 
-		if(analyseFrameHeader(frame, i, expectedBCC2) == -1) {
-			printf("ERROR in header.\n");
+		if(analyseFrameHeader(aux, 5+unstuffedLength, expectedBCC2) == -1) {
 			answer = CFlag == 0 ? REJ1 : REJ0;
 			sendSupervisionFrame(answer, getFileDescriptor(app));
 			return -1;
@@ -696,7 +659,7 @@ int readDataPackets(){
 			}
 			else if(buffer[0] == 1){ // C = 1  -> Pacote de dados
 
-				if(buffer[1] != (orderByte + 1) % 255) {
+				if(buffer[1] != (orderByte + 1) % 256) {
 					//printf("\rOut of order frame, ignoring!");
 					fflush(stdout);
 					continue;
@@ -766,6 +729,7 @@ int readDataPackets(){
 		} while(buffer[0] != 3);
 
 		printf("\rFile received!");
+		close(getTargetDescriptor(app));
 		fflush(stdout);;
 		return 0;
 }
