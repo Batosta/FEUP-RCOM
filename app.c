@@ -8,6 +8,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
+#include <time.h>
 #include "StateMachine.h"
 #include "api.h"
 #include "appLayer.h"
@@ -147,7 +148,7 @@ int waitForData(int path) {
 }
 
 /*
-	Função que tenta dar write dos frames.
+Função que tenta dar write dos frames.
 */
 int write_frame(int fd, unsigned char *frame, unsigned int length) {
 	int aux, total = 0;
@@ -156,7 +157,7 @@ int write_frame(int fd, unsigned char *frame, unsigned int length) {
 		aux = write(fd, frame, length);
 
 		if(aux <= 0)
-			return -1;
+		return -1;
 
 		total += aux;
 	}
@@ -192,7 +193,7 @@ void sendSupervisionFrame(unsigned char controlField, int fd) {
 	}
 	else {
 		perror("Invalid mode\n");
-    exit(-11);
+		exit(-11);
 	}
 
 	// C
@@ -306,7 +307,7 @@ int getStuffedLength(unsigned char *buffer, int length){
 
 	for(i = 0; i < length; i++){
 		if(buffer[i] == OCTETO1 || buffer[i] == OCTETO2)
-			contador++;
+		contador++;
 	}
 
 	stuffedLength = contador + length;
@@ -338,7 +339,7 @@ unsigned char *getUnstuffedData(unsigned char *buffer, int length){
 			unstuffed[j] = 0x7d;
 			i++;
 		}else
-			unstuffed[j] = buffer[i];
+		unstuffed[j] = buffer[i];
 	}
 	return unstuffed;
 }
@@ -350,7 +351,7 @@ int getUnstuffedLength(unsigned char *buffer, int length){
 	for(i = 0; i < length; i++){
 		if(buffer[i] == 0x7d){
 			if(buffer[i+1] ==  0x5e || buffer[i+1] ==  0x5d)
-				contador++;
+			contador++;
 		}
 	}
 
@@ -494,14 +495,38 @@ int sendFileInfo(char * fileName, int control) {
 	return (int)sizeOfFile;
 }
 
+void progressBar(int fileSize, int sentBytes) {
+	int progress = (int)(1.0 * sentBytes / fileSize * 100);
+	int length = progress / 2;
+	int i;
+
+	printf("\rPROGRESS: |");
+	for(i = 0; i < length-1; i++) {
+		printf("=");
+	}
+
+	printf(">");
+
+	for(i = 0; i < 50 - length; i++) {
+		printf(" ");
+	}
+
+	printf("| %d%% (%d / %d)", progress, sentBytes, fileSize);
+
+	fflush(stdout);
+}
+
 int sendFileData(int fileSize){
 
 	int fileSizeAux, bytes = 0, bytesRead = 0, nSeq = 0;
 	unsigned char *buffer, bufferFile[4];
+	clock_t begin, end;
 
 
 	fileSizeAux = fileSize;
 	buffer = (unsigned char*) malloc(8); //[C,N,L2,L1,P1...PK]
+
+	begin = clock();
 
 	while(bytes < fileSizeAux){
 
@@ -529,7 +554,13 @@ int sendFileData(int fileSize){
 
 		bytes += bytesRead;
 		nSeq++;
+
+		progressBar(fileSizeAux, bytes);
 	}
+
+	end = clock();
+
+	printf("\nElapsed time: %f", (float)(end - begin) * 100 / CLOCKS_PER_SEC);
 
 	close(getTargetDescriptor(app));
 
@@ -585,181 +616,178 @@ int analyseFrameHeader(unsigned char * frame, int length, unsigned char expected
 
 int llread(unsigned char * buffer){
 
-		unsigned char frame[200];		// Trama stuffed
-		unsigned char stuffedData[200];		// Dados stuffed
-		unsigned char *unstuffedData;		// Dados destuffed/originais
-		unsigned char expectedBCC2;		// BCC2 que é esperado
-		unsigned char answer;
-		unsigned char *aux;
+	unsigned char frame[200];		// Trama stuffed
+	unsigned char stuffedData[200];		// Dados stuffed
+	unsigned char *unstuffedData;		// Dados destuffed/originais
+	unsigned char expectedBCC2;		// BCC2 que é esperado
+	unsigned char answer;
+	unsigned char *aux;
 
 
-		int i; // Assume o valor do tamanho da trama stuffed
-		for(i = 0; i < 200; i++){
+	int i; // Assume o valor do tamanho da trama stuffed
+	for(i = 0; i < 200; i++){
 
-			read(getFileDescriptor(app), &frame[i], 1);
+		read(getFileDescriptor(app), &frame[i], 1);
 
-			if(i != 0 && frame[i] == FLAG)
-				break;
-		}
+		if(i != 0 && frame[i] == FLAG)
+		break;
+	}
 
-		int k;	// Assume o valor do tamanho da data stuffed
-		for(k = 4; k < i; k++) {
-			stuffedData[k-4] = frame[k];
-		}
+	int k;	// Assume o valor do tamanho da data stuffed
+	for(k = 4; k < i; k++) {
+		stuffedData[k-4] = frame[k];
+	}
 
-		// Dar destuff
-		int unstuffedLength = getUnstuffedLength(stuffedData, k-4);
-		unstuffedData = (unsigned char *) malloc(unstuffedLength);
-		unstuffedData = getUnstuffedData(stuffedData, k-4);
+	// Dar destuff
+	int unstuffedLength = getUnstuffedLength(stuffedData, k-4);
+	unstuffedData = (unsigned char *) malloc(unstuffedLength);
+	unstuffedData = getUnstuffedData(stuffedData, k-4);
 
-		expectedBCC2 = getBCC2(unstuffedData, unstuffedLength-1);
+	expectedBCC2 = getBCC2(unstuffedData, unstuffedLength-1);
 
-		int j;
+	int j;
 
-		aux = (unsigned char *)malloc((5+unstuffedLength)*sizeof(unsigned char));
+	aux = (unsigned char *)malloc((5+unstuffedLength)*sizeof(unsigned char));
 
-		memcpy(aux, frame, 4);
+	memcpy(aux, frame, 4);
 
-		for(j=4; j-4 < unstuffedLength; j++) {
-			aux[j] = unstuffedData[j-4];
-		}
+	for(j=4; j-4 < unstuffedLength; j++) {
+		aux[j] = unstuffedData[j-4];
+	}
 
-		aux[unstuffedLength+4] = FLAG;
+	aux[unstuffedLength+4] = FLAG;
 
-		for(j = 0; j < unstuffedLength - 1; j++){
-			buffer[j] = unstuffedData[j];
-		}
+	for(j = 0; j < unstuffedLength - 1; j++){
+		buffer[j] = unstuffedData[j];
+	}
 
-		if(analyseFrameHeader(aux, 5+unstuffedLength, expectedBCC2) == -1) {
-			answer = CFlag == 0 ? REJ1 : REJ0;
-			sendSupervisionFrame(answer, getFileDescriptor(app));
-			return -1;
-		}
-
-		answer = CFlag == 0 ? RR1 : RR0;
+	if(analyseFrameHeader(aux, 5+unstuffedLength, expectedBCC2) == -1) {
+		answer = CFlag == 0 ? REJ1 : REJ0;
 		sendSupervisionFrame(answer, getFileDescriptor(app));
+		return -1;
+	}
 
-		return i-6;
+	answer = CFlag == 0 ? RR1 : RR0;
+	sendSupervisionFrame(answer, getFileDescriptor(app));
+
+	return i-6;
 }
 
 
 int readDataPackets(){
 
-		char * filename;
-		unsigned char buffer[200];
-		unsigned char dataPacket[200];
-		int dataSize = 0;
-		int receivedBytes = 0;
-		long int fileSize;
-		int orderByte = -1;
+	char * filename;
+	unsigned char buffer[200];
+	unsigned char dataPacket[200];
+	int dataSize = 0;
+	int receivedBytes = 0;
+	long int fileSize;
+	int orderByte = -1;
 
-		do {
-			if((dataSize = llread(buffer)) == -1){
-				//printf("ERROR in frame, not printing to file!\n");
+	do {
+		if((dataSize = llread(buffer)) == -1){
+			//printf("ERROR in frame, not printing to file!\n");
+		}
+		else if(buffer[0] == 1){ // C = 1  -> Pacote de dados
+
+			if(buffer[1] != (orderByte + 1) % 256) {
+				//printf("\rOut of order frame, ignoring!");
+				fflush(stdout);
+				continue;
 			}
-			else if(buffer[0] == 1){ // C = 1  -> Pacote de dados
+			else {
+				orderByte++;
 
-				if(buffer[1] != (orderByte + 1) % 256) {
-					//printf("\rOut of order frame, ignoring!");
-					fflush(stdout);
-					continue;
-				}
-				else {
-					//printf("RECEIVIED BYTE with order -> %d numer %d of %ld with order %x \n", orderByte, receivedBytes, fileSize, buffer[1]);
-					orderByte++;
-
-					int k = 256 * buffer[2] + buffer[3];
-
-					int i;
-					for(i = 0; i < k; i++){
-						dataPacket[i] = buffer[i+4];
-					}
-
-					write_frame(getTargetDescriptor(app), dataPacket, 4);
-					receivedBytes += 4;
-				}
-			}
-			else if(buffer[0] == 2){ // C = 2 -> Pacote de controlo start  //  C = 3 -> Pacote de controlo end
-
-				unsigned char l = 0;
-				unsigned char lLast = l;
-				unsigned char t = 0;
-
+				int k = 256 * buffer[2] + buffer[3];
 
 				int i;
-				for(i = 0; i < 2; i++){
+				for(i = 0; i < k; i++){
+					dataPacket[i] = buffer[i+4];
+				}
 
-					t = buffer[1 + i*(1+1+l)];
-					lLast = l;
-					l = buffer[1 + i*(1+1+lLast) + 1];
+				write_frame(getTargetDescriptor(app), dataPacket, 4);
+				receivedBytes += 4;
+			}
+		}
+		else if(buffer[0] == 2){ // C = 2 -> Pacote de controlo start  //  C = 3 -> Pacote de controlo end
 
-					if(t == 0){	// Tamanho do ficheiro - Funciona
+			unsigned char l = 0;
+			unsigned char lLast = l;
+			unsigned char t = 0;
 
-						fileSize = 0x00;
-						int k;
-						for(k = 0; k < l; k++){
-							fileSize |= buffer[10-k] << 8*(7-k);
-						}
 
-						printf("\nFILE SIZE: %ld\n", fileSize);
+			int i;
+			for(i = 0; i < 2; i++){
 
-					} else if(t == 1){	// Nome do ficheiro - Funciona
+				t = buffer[1 + i*(1+1+l)];
+				lLast = l;
+				l = buffer[1 + i*(1+1+lLast) + 1];
 
-						filename = malloc(l + 1);
-						int k;
-						for(k = 0; k < l; k++){
+				if(t == 0){	// Tamanho do ficheiro - Funciona
 
-							filename[k] = buffer[1 + i*(1+1+lLast) + 2 + k];
-						}
-						filename[k] = 0;
-
-						printf("FILE NAME: %s\n", filename);
-
-						setTargetDescriptor(app, open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0777));
-
-					} else {
-
-						printf("T with unknown value\n");
-						return -1;
+					fileSize = 0x00;
+					int k;
+					for(k = 0; k < l; k++){
+						fileSize |= buffer[10-k] << 8*(7-k);
 					}
+
+					printf("\nFILE SIZE: %ld bytes\n", fileSize);
+
+				} else if(t == 1){	// Nome do ficheiro - Funciona
+
+					filename = malloc(l + 1);
+					int k;
+					for(k = 0; k < l; k++){
+
+						filename[k] = buffer[1 + i*(1+1+lLast) + 2 + k];
+					}
+					filename[k] = 0;
+
+					printf("FILE NAME: %s\n", filename);
+
+					setTargetDescriptor(app, open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0777));
+
+				} else {
+					printf("T with unknown value\n");
+					return -1;
 				}
 			}
-			printf("\rRECEIVING DATA: %d %%", (int)(1.0 * receivedBytes / fileSize * 100));
-			fflush(stdout);
-		} while(buffer[0] != 3);
+		}
+		progressBar(fileSize, receivedBytes);
+	} while(buffer[0] != 3);
 
-		printf("\rFile received!");
-		close(getTargetDescriptor(app));
-		fflush(stdout);;
-		return 0;
+	printf("\rFile received!");
+	close(getTargetDescriptor(app));
+	fflush(stdout);;
+	return 0;
 }
 
 int llopen(int path, int mode) {
 
 	switch(mode) {
 		case RECEIVER:
-			initializeStateMachine(linkL, SET, RECEIVER);
-			while(waitForData(path) == FALSE) {/*printf("\r Waiting.");fflush(stdout);*/}
-			sendSupervisionFrame(SET, getFileDescriptor(app));
-			return TRUE;
+		initializeStateMachine(linkL, SET, RECEIVER);
+		while(waitForData(path) == FALSE) {/*printf("\r Waiting.");fflush(stdout);*/}
+		sendSupervisionFrame(SET, getFileDescriptor(app));
+		return TRUE;
 		case TRANSMITTER:
-			initializeStateMachine(linkL, SET, TRANSMITTER);
-			resetTries(linkL);
-			setFlag(linkL, 0);
-			while(getNumberOFTries(linkL) < getnumTransformations(linkL)){
-				if(getFlag(linkL) == 0) {
-					sendSupervisionFrame(SET, getFileDescriptor(app));
-					alarm(getTimeout(linkL));
-					setFlag(linkL, 1);
-				}
-				if(waitForData(path) == TRUE){
-					alarm(0);
-					return TRUE;
-				}
+		initializeStateMachine(linkL, SET, TRANSMITTER);
+		resetTries(linkL);
+		setFlag(linkL, 0);
+		while(getNumberOFTries(linkL) < getnumTransformations(linkL)){
+			if(getFlag(linkL) == 0) {
+				sendSupervisionFrame(SET, getFileDescriptor(app));
+				alarm(getTimeout(linkL));
+				setFlag(linkL, 1);
 			}
-			return FALSE;
+			if(waitForData(path) == TRUE){
+				alarm(0);
+				return TRUE;
+			}
+		}
+		return FALSE;
 		default:
-			return TRUE;
+		return TRUE;
 	}
 
 	return TRUE;
@@ -771,31 +799,31 @@ int llclose(int path, int mode) {
 
 	switch(mode){
 		case RECEIVER:
-			initializeStateMachine(linkL, DISC, RECEIVER);
-			while(waitForData(path) == FALSE) {}
-			sendSupervisionFrame(DISC, getFileDescriptor(app));
-			initializeStateMachine(linkL, UA, RECEIVER);
-			while(waitForData(path) == FALSE) {}
-			return TRUE;
+		initializeStateMachine(linkL, DISC, RECEIVER);
+		while(waitForData(path) == FALSE) {}
+		sendSupervisionFrame(DISC, getFileDescriptor(app));
+		initializeStateMachine(linkL, UA, RECEIVER);
+		while(waitForData(path) == FALSE) {}
+		return TRUE;
 		case TRANSMITTER:
-			initializeStateMachine(linkL, DISC, TRANSMITTER);
-			resetTries(linkL);
-			setFlag(linkL, 0);
-			while(getNumberOFTries(linkL) < getnumTransformations(linkL)) {
-				if(getFlag(linkL) == 0) {
-					sendSupervisionFrame(DISC, getFileDescriptor(app));
-					alarm(getTimeout(linkL));
-					setFlag(linkL, 1);
-				}
-				if(waitForData(path) == TRUE) {
-					alarm(0);
-					sendSupervisionFrame(UA, getFileDescriptor(app));
-					return TRUE;
-				}
+		initializeStateMachine(linkL, DISC, TRANSMITTER);
+		resetTries(linkL);
+		setFlag(linkL, 0);
+		while(getNumberOFTries(linkL) < getnumTransformations(linkL)) {
+			if(getFlag(linkL) == 0) {
+				sendSupervisionFrame(DISC, getFileDescriptor(app));
+				alarm(getTimeout(linkL));
+				setFlag(linkL, 1);
 			}
-			return FALSE;
+			if(waitForData(path) == TRUE) {
+				alarm(0);
+				sendSupervisionFrame(UA, getFileDescriptor(app));
+				return TRUE;
+			}
+		}
+		return FALSE;
 		default:
-			return FALSE;
+		return FALSE;
 	}
 
 	return FALSE;
