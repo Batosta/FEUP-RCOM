@@ -582,7 +582,7 @@ int analyseFrameHeader(unsigned char * frame, int length, unsigned char expected
 	//printf("exp: %x    frame: %x\n", expectedBCC2, frame[length-1]);
 	if(frame[length-2] != expectedBCC2){
 		//printf("Error in BCC2.\n");
-		printf("exp: %x    frame: %x\n", expectedBCC2, frame[length-1]);
+		printf("exp: %x    frame: %x\n", expectedBCC2, frame[length-2]);
 		return -1;
 	}
 
@@ -616,73 +616,79 @@ int analyseFrameHeader(unsigned char * frame, int length, unsigned char expected
 
 int llread(unsigned char * buffer){
 
-	unsigned char frame[200];		// Trama stuffed
-	unsigned char stuffedData[200];		// Dados stuffed
-	unsigned char *unstuffedData;		// Dados destuffed/originais
-	unsigned char expectedBCC2;		// BCC2 que é esperado
-	unsigned char answer;
-	unsigned char *aux;
+
+		unsigned char frame[MAX_SIZE];		// Trama stuffed
+		unsigned char stuffedData[MAX_SIZE];		// Dados stuffed
+		unsigned char *unstuffedData;		// Dados destuffed/originais
+		unsigned char expectedBCC2;		// BCC2 que é esperado
+		unsigned char answer;
+		unsigned char *aux;
 
 
-	int i; // Assume o valor do tamanho da trama stuffed
-	for(i = 0; i < 200; i++){
+		int i; // Assume o valor do tamanho da trama stuffed
+		for(i = 0; i < MAX_SIZE; i++){
 
-		read(getFileDescriptor(app), &frame[i], 1);
+			read(getFileDescriptor(app), &frame[i], 1);
 
-		if(i != 0 && frame[i] == FLAG)
-		break;
-	}
+			if(i != 0 && frame[i] == FLAG)
+			break;
+		}
 
-	int k;	// Assume o valor do tamanho da data stuffed
-	for(k = 4; k < i; k++) {
-		stuffedData[k-4] = frame[k];
-	}
+		int k;	// Assume o valor do tamanho da data stuffed
+		for(k = 4; k < i; k++) {
+			stuffedData[k-4] = frame[k];
+		}
 
-	// Dar destuff
-	int unstuffedLength = getUnstuffedLength(stuffedData, k-4);
-	unstuffedData = (unsigned char *) malloc(unstuffedLength);
-	unstuffedData = getUnstuffedData(stuffedData, k-4);
 
-	expectedBCC2 = getBCC2(unstuffedData, unstuffedLength-1);
 
-	int j;
+		// Dar destuff
+		int unstuffedLength = getUnstuffedLength(stuffedData, k-4);
+		unstuffedData = (unsigned char *) malloc(unstuffedLength);
+		unstuffedData = getUnstuffedData(stuffedData, k-4);
 
-	aux = (unsigned char *)malloc((5+unstuffedLength)*sizeof(unsigned char));
+		expectedBCC2 = getBCC2(unstuffedData, unstuffedLength-1);
 
-	memcpy(aux, frame, 4);
+		int j;
 
-	for(j=4; j-4 < unstuffedLength; j++) {
-		aux[j] = unstuffedData[j-4];
-	}
+		aux = (unsigned char *)malloc((5+unstuffedLength)*sizeof(unsigned char));
 
-	aux[unstuffedLength+4] = FLAG;
+		memcpy(aux, frame, 4);
 
-	for(j = 0; j < unstuffedLength - 1; j++){
-		buffer[j] = unstuffedData[j];
-	}
+		for(j=4; j-4 < unstuffedLength; j++) {
+			aux[j] = unstuffedData[j-4];
+		}
 
-	if(analyseFrameHeader(aux, 5+unstuffedLength, expectedBCC2) == -1) {
-		answer = CFlag == 0 ? REJ1 : REJ0;
+		aux[unstuffedLength+4] = FLAG;
+
+		for(j = 0; j < unstuffedLength - 1; j++){
+			buffer[j] = unstuffedData[j];
+		}
+
+		if(analyseFrameHeader(aux, 5+unstuffedLength, expectedBCC2) == -1) {
+			answer = CFlag == 0 ? REJ1 : REJ0;
+			sendSupervisionFrame(answer, getFileDescriptor(app));
+			return -1;
+		}
+
+		answer = CFlag == 0 ? RR1 : RR0;
 		sendSupervisionFrame(answer, getFileDescriptor(app));
-		return -1;
-	}
 
-	answer = CFlag == 0 ? RR1 : RR0;
-	sendSupervisionFrame(answer, getFileDescriptor(app));
-
-	return i-6;
+		return i-6;
 }
 
 
 int readDataPackets(){
 
 	char * filename;
-	unsigned char buffer[200];
-	unsigned char dataPacket[200];
+	unsigned char buffer[MAX_SIZE];
+	unsigned char dataPacket[MAX_SIZE];
 	int dataSize = 0;
 	int receivedBytes = 0;
 	long int fileSize;
 	int orderByte = -1;
+	clock_t begin, end;
+
+	begin = clock();
 
 	do {
 		if((dataSize = llread(buffer)) == -1){
@@ -691,8 +697,6 @@ int readDataPackets(){
 		else if(buffer[0] == 1){ // C = 1  -> Pacote de dados
 
 			if(buffer[1] != (orderByte + 1) % 256) {
-				//printf("\rOut of order frame, ignoring!");
-				fflush(stdout);
 				continue;
 			}
 			else {
@@ -700,12 +704,14 @@ int readDataPackets(){
 
 				int k = 256 * buffer[2] + buffer[3];
 
+				//printf("k=%d\n", k);
+
 				int i;
 				for(i = 0; i < k; i++){
 					dataPacket[i] = buffer[i+4];
 				}
 
-				write_frame(getTargetDescriptor(app), dataPacket, 4);
+				write_frame(getTargetDescriptor(app), dataPacket, k);
 				receivedBytes += 4;
 			}
 		}
@@ -756,7 +762,8 @@ int readDataPackets(){
 		progressBar(fileSize, receivedBytes);
 	} while(buffer[0] != 3);
 
-	printf("\rFile received!");
+	end = clock();
+	printf("\nFile received! Elapsed time: %f", (float)(end - begin) * 100 / CLOCKS_PER_SEC);
 	close(getTargetDescriptor(app));
 	fflush(stdout);;
 	return 0;
