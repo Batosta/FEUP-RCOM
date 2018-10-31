@@ -111,7 +111,7 @@ void setNewAttributes(struct termios *newtio) {
 	newtio->c_lflag = 0;
 
 	newtio->c_cc[VTIME] = 1;   /* inter-character timer unused */
-	newtio->c_cc[VMIN] = 0;   /* blocking read until 5 chars received */
+	newtio->c_cc[VMIN] = 1;   /* blocking read until 5 chars received */
 }
 
 void serialPortSetup(int path) {
@@ -244,7 +244,7 @@ void configureLinkLayer(char * path) {
 			printf("Insert frame size(min - 8 | max - 65792): ");
 			scanf("%s", filePath);
 			dimension = atoi(filePath);
-		} while(dimension < 8);
+		} while(dimension < 8 || dimension > MAX_SIZE);
 
 		defineSelectedFrameSize(app, dimension);
 	}
@@ -779,7 +779,7 @@ int readDataPackets(){
 		end = clock();
 		delta = (double)(1.0*(end - begin) / CLOCKS_PER_SEC);
 
-		printf("\nFile received!\nElapsed time: %f seconds.\nAVG Speed: %f bytes per second.\n", delta, fileSize/delta);
+		printf("\nFile received!\nElapsed time: %.1f seconds.\nAVG Speed: %.1f bytes per second.\n", delta, fileSize/delta);
 		close(getTargetDescriptor(app));
 		fflush(stdout);;
 		return 0;
