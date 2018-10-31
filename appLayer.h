@@ -19,6 +19,7 @@ typedef struct applicationLayer {
 	struct termios oldPortConfiguration;
 	int targetFileDescriptor;
 	char * fileName;
+	unsigned int selectedFrameSize;
 } applicationLayer;
 
 
@@ -35,8 +36,12 @@ int getTargetDescriptor(applicationLayer *a);
 
 char * getFileName(applicationLayer *a);
 
+unsigned int getSelectedFrameSize(applicationLayer *a);
+
 
 //DEFINES
+void defineSelectedFrameSize(applicationLayer *a, unsigned int size);
+
 void defineFileName(applicationLayer *a, char * name);
 
 void setTargetDescriptor(applicationLayer *a, int fd);

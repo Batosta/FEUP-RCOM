@@ -13,7 +13,7 @@
 #include <signal.h>
 #include "StateMachine.h"
 
-#define MAX_SIZE 2048
+#define MAX_SIZE 65792
 
 typedef struct linkLayer {
 	char port[20];	/*Dispositivo /dev/ttySx, x = 0, 1*/

@@ -1,7 +1,5 @@
 #include "api.h"
 
-#define MAX_SIZE 2048
-
 //DEFINES
 void definePort(linkLayer *a, char *port){
 	strcpy(a->port, port);

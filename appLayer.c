@@ -35,8 +35,15 @@ char * getFileName(applicationLayer *a) {
 	return a->fileName;
 }
 
+unsigned int getSelectedFrameSize(applicationLayer *a) {
+	return a->selectedFrameSize;
+}
+
 
 //DEFINES
+void defineSelectedFrameSize(applicationLayer *a, unsigned int size) {
+	a->selectedFrameSize = size;
+}
 void defineFileName(applicationLayer *a, char * name) {
 	a->fileName = (char *)malloc(strlen(name));
 	strcpy(a->fileName, name);
