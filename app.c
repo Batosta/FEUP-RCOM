@@ -531,6 +531,7 @@ int sendFileData(int fileSize, int frameSize){
 	int fileSizeAux, bytes = 0, bytesRead = 0, nSeq = 0;
 	unsigned char *buffer, bufferFile[frameSize-4];
 	clock_t begin, end;
+	double delta;
 
 
 	fileSizeAux = fileSize;
@@ -570,7 +571,9 @@ int sendFileData(int fileSize, int frameSize){
 
 	end = clock();
 
-	printf("\nElapsed time: %f", (float)(end - begin) * 100 / CLOCKS_PER_SEC);
+	delta = (double)(1.0*(end - begin) /  CLOCKS_PER_SEC);
+
+	printf("\nFile sent!\nElapsed time: %.1f seconds.\nAVG Speed: %.1f bytes per second.\n", delta, bytes/delta);
 
 	close(getTargetDescriptor(app));
 
@@ -697,6 +700,7 @@ int readDataPackets(){
 		long int fileSize;
 		int orderByte = -1;
 		clock_t begin, end;
+		double delta;
 
 		begin = clock();
 
@@ -773,7 +777,9 @@ int readDataPackets(){
 		} while(buffer[0] != 3);
 
 		end = clock();
-		printf("\nFile received! Elapsed time: %f", (float)(end - begin) * 100 / CLOCKS_PER_SEC);
+		delta = (double)(1.0*(end - begin) / CLOCKS_PER_SEC);
+
+		printf("\nFile received!\nElapsed time: %f seconds.\nAVG Speed: %f bytes per second.\n", delta, fileSize/delta);
 		close(getTargetDescriptor(app));
 		fflush(stdout);;
 		return 0;
