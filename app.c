@@ -13,7 +13,7 @@
 #include "api.h"
 #include "appLayer.h"
 
-#define BAUDRATE B115200
+#define BAUDRATE B38400
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
 #define FALSE 0
 #define TRUE 1
@@ -111,7 +111,7 @@ void setNewAttributes(struct termios *newtio) {
 	newtio->c_lflag = 0;
 
 	newtio->c_cc[VTIME] = 1;   /* inter-character timer unused */
-	newtio->c_cc[VMIN] = 1;   /* blocking read until 5 chars received */
+	newtio->c_cc[VMIN] = 0;   /* blocking read until 5 chars received */
 }
 
 void serialPortSetup(int path) {
@@ -241,10 +241,10 @@ void configureLinkLayer(char * path) {
 		defineFileName(app, filePath);
 
 		do {
-			printf("Insert frame size(min - 8 | max - 65792): ");
+			printf("Insert frame size(min - 8 | max - 62000): ");
 			scanf("%s", filePath);
 			dimension = atoi(filePath);
-		} while(dimension < 8 || dimension > MAX_SIZE);
+		} while(dimension < 8 || dimension > 62000);
 
 		defineSelectedFrameSize(app, dimension);
 	}
@@ -449,8 +449,7 @@ int llwrite(int fd, unsigned char* buffer, int length){
 		interpretSignal(detectRR, bytesStream[0]);
 
 		if(getMachineState(detectREJ) == FINAL_STATE) { //se entrar é sinal que detectou um REJ
-			printf("\rREJ detected! Resending.");
-			fflush(stdout);
+			printf("REJ detected! Resending.\n");
 			if(write_frame(fd, frame, frameLength) == -1) {
 				printf("Error writting frame\n");
 				return -1;
@@ -867,7 +866,7 @@ void closeConnection() {
 	if(llclose(getFileDescriptor(app), getStatus(app)) == 1) {
 		printf("\nConnection closed successfully!\n");
 	} else {
-		printf("Failed to closeconnection!\n");
+		printf("Failed to close connection!\n");
 	}
 }
 
