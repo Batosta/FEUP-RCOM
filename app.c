@@ -526,18 +526,23 @@ void progressBar(int fileSize, int sentBytes) {
 	fflush(stdout);
 }
 
+double what_time_is_it() {
+    struct timespec now;
+    clock_gettime(CLOCK_REALTIME, &now);
+    return now.tv_sec + now.tv_nsec*1e-9;
+}
+
 int sendFileData(int fileSize, int frameSize){
 
 	int fileSizeAux, bytes = 0, bytesRead = 0, nSeq = 0;
 	unsigned char *buffer, bufferFile[frameSize-4];
-	clock_t begin, end;
-	double delta;
-
+	double begin, end, delta;
 
 	fileSizeAux = fileSize;
+
 	buffer = (unsigned char*) malloc(frameSize); //[C,N,L2,L1,P1...PK]
 
-	begin = clock();
+	begin = what_time_is_it();
 
 	while(bytes < fileSizeAux){
 
@@ -569,9 +574,9 @@ int sendFileData(int fileSize, int frameSize){
 		progressBar(fileSizeAux, bytes);
 	}
 
-	end = clock();
+	end = what_time_is_it();
 
-	delta = (double)(1.0*(end - begin) /  CLOCKS_PER_SEC);
+	delta = end-begin;
 
 	printf("\nFile sent!\nElapsed time: %.1f seconds.\nAVG Speed: %.1f bytes per second.\n", delta, bytes/delta);
 
@@ -629,9 +634,12 @@ int analyseFrameHeader(unsigned char * frame, int length, unsigned char expected
 
 unsigned char * llread() {
 
-	receiverstatemachine * x = newReceiverStateMachine(CFlag == 0 ? 0x00 : 0x40);
+	receiverstatemachine * x;
 	unsigned char frame[1];
 	unsigned char answer;
+	unsigned char * data;
+
+	x = newReceiverStateMachine(CFlag == 0 ? 0x00 : 0x40);
 
 	do {
 		read(getFileDescriptor(app), frame, 1);
@@ -652,9 +660,12 @@ unsigned char * llread() {
 
 	sendSupervisionFrame(answer, getFileDescriptor(app));
 
-	return getDataFrame(x);
-}
+	data =  getDataFrame(x);
 
+	deleteStateMachine(x);
+
+	return data;
+}
 
 int readDataPackets(){
 
@@ -664,13 +675,13 @@ int readDataPackets(){
 		int receivedBytes = 0;
 		long int fileSize;
 		int orderByte = -1;
-		clock_t begin, end;
+		double begin, end;
 		double delta;
 
-		begin = clock();
+		begin = what_time_is_it();
 
 		do {
-			buffer = llread(buffer);
+			buffer = llread();
 
 			if(buffer == NULL) {
 				printf("ERROR\n");
@@ -737,10 +748,9 @@ int readDataPackets(){
 			progressBar(fileSize, receivedBytes);
 		} while(buffer[0] != 3);
 
+		end = what_time_is_it();
 
-
-		end = clock();
-		delta = (double)(1.0*(end - begin) / CLOCKS_PER_SEC);
+		delta = end - begin;
 
 		printf("\nFile received!\nElapsed time: %.1f seconds.\nAVG Speed: %.1f bytes per second.\n", delta, fileSize/delta);
 		close(getTargetDescriptor(app));

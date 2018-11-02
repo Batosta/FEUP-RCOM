@@ -26,6 +26,8 @@ typedef struct {
 
 receiverstatemachine * newReceiverStateMachine(unsigned char param);
 
+void deleteStateMachine(receiverstatemachine *r);
+
 void setMachineState(receiverstatemachine *r, int newState);
 
 int getState(receiverstatemachine *r);

@@ -14,7 +14,15 @@ receiverstatemachine * newReceiverStateMachine(unsigned char param) {
 
   r->escapeFlag = 0;
 
+  r->state = START_STATE;
+
   return r;
+}
+
+void deleteStateMachine(receiverstatemachine *r) {
+  delete(r->frame);
+
+  free(r);
 }
 
 void setMachineState(receiverstatemachine *r, int newState) {
@@ -51,6 +59,8 @@ int sizeOfFrame(receiverstatemachine *r) {
 }
 
 void interpretChar(receiverstatemachine *r, unsigned char s) {
+
+    //printf("state: %d  length = %d char = %x flag= %d\n",r->state ,length(r->frame), s, r->escapeFlag);
 
   switch(r->state){
     case START_STATE:
@@ -100,10 +110,13 @@ void interpretChar(receiverstatemachine *r, unsigned char s) {
         insert(r->frame, s, -1);
         r->escapeFlag = 0;
       }
-      else if(s == FLAG){
+      else if(s == FLAG && length(r->frame) != 0){
         r->bcc2 = r->bcc2 ^elementAt(r->frame, length(r->frame)-2);
         setMachineState(r, FINAL_STATE);
         return;
+      }
+      else if(s == FLAG && length(r->frame) == 0) {
+        setMachineState(r, ERROR_STATE);
       }
       else {
         insert(r->frame, s, -1);
@@ -116,6 +129,7 @@ void interpretChar(receiverstatemachine *r, unsigned char s) {
       }
       return;
     default:
+      setMachineState(r, ERROR_STATE);
       break;
   }
 }

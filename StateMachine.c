@@ -25,6 +25,8 @@ statemachine * newStateMachine(unsigned char Cparameter, int mode) {
     }
   }
 
+  t->state = START_STATE;
+
   return t;
 }
 
