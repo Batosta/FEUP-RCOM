@@ -4,8 +4,7 @@
 #include <limits.h>
 
 
-frame * newFrame()
-{
+frame * newFrame() {
 	frame * vec;
 
 	vec = (frame*)malloc(sizeof(frame));
@@ -20,42 +19,32 @@ frame * newFrame()
 	return vec;
 }
 
-void delete(frame* vec)
-{
-
+void delete(frame* vec) {
 	if(vec == NULL)
 		return;
 
-
-	/* liberta memoria do array de elements */
 	free(vec->elements);
 
-	/* liberta memoria da estrutura vetor */
 	free(vec);
 }
 
-int assign(frame* vec, int pos, unsigned char val)
-{
-
+int assign(frame* vec, int pos, unsigned char val) {
 	if (vec == NULL || pos < 0 || pos >= vec->length)
 		return -1;
 
-	/* copia valor */
 	vec->elements[pos].value = val;
 
 	return pos;
 }
 
-int length(frame* vec)
-{
+int length(frame* vec) {
 	if(vec == NULL)
 		return -1;
 
 	return vec->length;
 }
 
-unsigned char elementAt(frame* vec, int indice)
-{
+unsigned char elementAt(frame* vec, int indice) {
 	if (vec == NULL || indice < 0 || indice >= vec->length)
 		return 0;
 
@@ -69,6 +58,7 @@ int insert(frame* vec, unsigned char valor, int pos) {
     return -1;
   }
 
+	/* if pos = -1, gets the last element */
 	if(pos == -1) {
     pos = vec->length;
   }
@@ -98,8 +88,7 @@ int insert(frame* vec, unsigned char valor, int pos) {
 	return pos;
 }
 
-int removeElement(frame* vec, int pos)
-{
+int removeElement(frame* vec, int pos) {
 	int i;
 
 	if(vec == NULL || pos < 0 || pos >= vec->length)

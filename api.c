@@ -9,20 +9,12 @@ void defineBaudRate(linkLayer *a, int baudRate){
 	a->baudRate = baudRate;
 }
 
-void defineSequenceNumber(linkLayer *a, unsigned short sequenceNumber){
-	a->sequenceNumber = sequenceNumber;
-}
-
 void defineTimeout(linkLayer *a, unsigned short timeout){
 	a->timeout = timeout;
 }
 
 void defineNumTransformations(linkLayer *a, unsigned short numTransformations){
 	a->numTransformations = numTransformations;
-}
-
-void defineFrame(linkLayer *a, char *frame){
-	strcpy(a->frame,frame);
 }
 
 void anotherTry(linkLayer *a) {
@@ -67,20 +59,12 @@ int getBaudRate(linkLayer *ll){
 	return ll->baudRate;
 }
 
-unsigned short getSequenceNumber(linkLayer *ll){
-	return ll->sequenceNumber;
-}
-
 unsigned short getTimeout(linkLayer *ll){
 	return ll->timeout;
 }
 
 unsigned short getnumTransformations(linkLayer *ll){
 	return ll->numTransformations;
-}
-
-char * getFrame(linkLayer *ll){
-	return ll->frame;
 }
 
 void initializeStateMachine(linkLayer *a, unsigned char parameter, int mode) {

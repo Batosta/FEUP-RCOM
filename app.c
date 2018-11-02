@@ -14,7 +14,7 @@
 #include "api.h"
 #include "appLayer.h"
 
-#define BAUDRATE B38400
+#define BAUDRATE B230400
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
 #define FALSE 0
 #define TRUE 1
@@ -35,6 +35,8 @@
 
 #define OCTETO1 0x7E
 #define OCTETO2 0x7D
+
+#define clear() printf("\033[H\033[J")
 
 linkLayer * linkL;
 applicationLayer * app;
@@ -249,6 +251,8 @@ void configureLinkLayer(char * path) {
 
 		defineSelectedFrameSize(app, dimension);
 	}
+
+	clear();
 }
 
 void installSignalHandlers() {
@@ -325,51 +329,6 @@ int getStuffedLength(unsigned char *buffer, int length){
 	return stuffedLength;
 }
 
-unsigned char *getUnstuffedData(unsigned char *buffer, int length){
-
-	int i, j, contador = 0, unstuffedLength;
-	unsigned char *unstuffed;
-
-	for(i = 0; i < length; i++){
-		if(buffer[i] == 0x7d){
-			if(buffer[i+1] == 0x5e || buffer[i+1] == 0x5d) {
-				contador++;
-			}
-		}
-	}
-
-	unstuffedLength = length - contador;
-
-	unstuffed = (unsigned char*)malloc(unstuffedLength);
-
-	for(i = 0, j = 0; i < length; i++, j++){
-		if(buffer[i] == 0x7d && buffer[i+1] ==  0x5e){
-			unstuffed[j] = 0x7e;
-			i++;
-		}else if(buffer[i] == 0x7d && buffer[i+1] ==  0x5d){
-			unstuffed[j] = 0x7d;
-			i++;
-		}else
-		unstuffed[j] = buffer[i];
-	}
-	return unstuffed;
-}
-
-int getUnstuffedLength(unsigned char *buffer, int length){
-
-	int i, contador = 0, unstuffedLength;
-
-	for(i = 0; i < length; i++){
-		if(buffer[i] == 0x7d){
-			if(buffer[i+1] ==  0x5e || buffer[i+1] ==  0x5d)
-			contador++;
-		}
-	}
-
-	unstuffedLength = length - contador;
-	return unstuffedLength;
-}
-
 unsigned char * appendBCC2(unsigned char* buffer, int length, unsigned char bcc) {
 	unsigned char * frame;
 
@@ -385,10 +344,9 @@ unsigned char * appendBCC2(unsigned char* buffer, int length, unsigned char bcc)
 // Cria uma trama de informacao
 int llwrite(int fd, unsigned char* buffer, int length){
 
-	//Trama de informacao
 	unsigned char *frame, *stuffed, bytesStream[1];
-	//int superVisionFrame;
-	int frameLength, i, j, stuffedLength;
+
+	int frameLength, stuffedLength;
 
 	unsigned char bcc2;
 
@@ -411,18 +369,11 @@ int llwrite(int fd, unsigned char* buffer, int length){
 	frame[0] = FLAG;
 	frame[1] = AE;
 
-	if(CFlag == 0) {
-		frame[2] = 0x00;
-	}
-	else {
-		frame[2] = 0x40;
-	}
+	frame[2] = CFlag == 0 ? 0x00 : 0x40;
 
 	frame[3] = frame[1]^frame[2];
 
-	for(i = 4, j = 0; j < stuffedLength; i++, j++){
-		frame[i] = stuffed[j];
-	}
+	memcpy(frame+4, stuffed, stuffedLength);
 
 	frame[stuffedLength + 4] = FLAG;
 
@@ -596,42 +547,6 @@ void sendFile() {
 	sizeFile = sendFileInfo(getFileName(app), END_C);//Trama de controlo END
 }
 
-int analyseFrameHeader(unsigned char * frame, int length, unsigned char expectedBCC2) {
-	//printf("exp: %x    frame: %x\n", expectedBCC2, frame[length-1]);
-		if(frame[length-2] != expectedBCC2){
-			//printf("Error in BCC2.\n");
-			printf("exp: %x    frame: %x\n", expectedBCC2, frame[length-2]);
-			return -1;
-		}
-
-		if(frame[0] != FLAG){
-			printf("Error in FLAG_1.\n");
-			return -1;
-		}
-
-		if(frame[1] != AE){
-			printf("Error in A.\n");
-			return -1;
-		}
-
-		if((CFlag == 0 && frame[2] != 0) || (CFlag == 1 && frame[2] != 0x40)){
-			printf("Error in C.\n");
-			return -1;
-		}
-
-		if(frame[3] != (frame[1] ^ frame[2])){
-			printf("Error in BCC1.\n");
-			return -1;
-		}
-
-		if(frame[length-1] != FLAG){
-			printf("Error in FLAG_2.\n");
-			return -1;
-		}
-
-		return 0;
-}
-
 unsigned char * llread() {
 
 	receiverstatemachine * x;
@@ -647,9 +562,11 @@ unsigned char * llread() {
 	} while(getState(x) != FINAL_STATE && getState(x) != ERROR_STATE);
 
 	if(getState(x) == ERROR_STATE) {
+		/* if there is an error in the header we ignore the frame */
 		return NULL;
 	}
 
+	/* if there is an error in the data we send REJ */
 	if(getSentBCC2(x) != getCalculatedBCC2(x)) {
 		answer = CFlag == 0 ? REJ1 : REJ0;
 		sendSupervisionFrame(answer, getFileDescriptor(app));

@@ -1,7 +1,5 @@
 #include "appLayer.h"
 
-
-//GETS
 applicationLayer * getAppLayer (int fd, int mode) {
 	applicationLayer * a = (applicationLayer*) malloc(sizeof(applicationLayer));
 
@@ -39,8 +37,6 @@ unsigned int getSelectedFrameSize(applicationLayer *a) {
 	return a->selectedFrameSize;
 }
 
-
-//DEFINES
 void defineSelectedFrameSize(applicationLayer *a, unsigned int size) {
 	a->selectedFrameSize = size;
 }
@@ -67,13 +63,3 @@ void resetPortConfiguration(applicationLayer *a) {
 		exit(-1);
 	}
 }
-
-
-//DESTRUCTORS
-//void destructFileDescriptor(applicationLayer *a){
-//	free(a->fileDescriptor);
-//}
-//
-//void destructStatus(applicationLayer *a){
-//	free(a->status);
-//}

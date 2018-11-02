@@ -22,7 +22,6 @@ typedef struct applicationLayer {
 	unsigned int selectedFrameSize;
 } applicationLayer;
 
-
 //GETS
 applicationLayer * getAppLayer (int fd, int mode);
 
@@ -38,7 +37,6 @@ char * getFileName(applicationLayer *a);
 
 unsigned int getSelectedFrameSize(applicationLayer *a);
 
-
 //DEFINES
 void defineSelectedFrameSize(applicationLayer *a, unsigned int size);
 
@@ -53,11 +51,5 @@ void defineFileDescriptor(applicationLayer *a, int fd);
 void defineStatus(applicationLayer *a, int status);
 
 void resetPortConfiguration(applicationLayer *a);
-
-
-//DESTRUCTORS
-// void destructFileDescriptor(applicationLayer *a);
-//
-// void destructStatus(applicationLayer *a);
 
 #endif

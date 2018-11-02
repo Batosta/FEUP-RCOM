@@ -1,7 +1,5 @@
 #include "StateMachine.h"
 
-//VER REPOSITIORIO DE PROG 2 NO GitHub
-
 statemachine * newStateMachine(unsigned char Cparameter, int mode) {
 
   statemachine *t = (statemachine*) malloc(sizeof(statemachine));

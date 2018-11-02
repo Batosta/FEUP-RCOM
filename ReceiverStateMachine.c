@@ -60,8 +60,6 @@ int sizeOfFrame(receiverstatemachine *r) {
 
 void interpretChar(receiverstatemachine *r, unsigned char s) {
 
-    //printf("state: %d  length = %d char = %x flag= %d\n",r->state ,length(r->frame), s, r->escapeFlag);
-
   switch(r->state){
     case START_STATE:
       if(s == FLAG) {
