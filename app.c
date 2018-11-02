@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <time.h>
+#include "ReceiverStateMachine.h"
 #include "StateMachine.h"
 #include "api.h"
 #include "appLayer.h"
@@ -626,75 +627,40 @@ int analyseFrameHeader(unsigned char * frame, int length, unsigned char expected
 		return 0;
 }
 
-int llread(unsigned char * buffer){
+unsigned char * llread() {
 
+	receiverstatemachine * x = newReceiverStateMachine(CFlag == 0 ? 0x00 : 0x40);
+	unsigned char frame[1];
+	unsigned char answer;
 
-			unsigned char frame[MAX_FRAME_SIZE];		// Trama stuffed
-			unsigned char stuffedData[MAX_FRAME_SIZE];		// Dados stuffed
-			unsigned char *unstuffedData;		// Dados destuffed/originais
-			unsigned char expectedBCC2;		// BCC2 que é esperado
-			unsigned char answer;
-			unsigned char *aux;
+	do {
+		read(getFileDescriptor(app), frame, 1);
+		interpretChar(x, frame[0]);
+	} while(getState(x) != FINAL_STATE && getState(x) != ERROR_STATE);
 
+	if(getState(x) == ERROR_STATE) {
+		return NULL;
+	}
 
-			int i; // Assume o valor do tamanho da trama stuffed
-			for(i = 0; i < MAX_FRAME_SIZE; i++){
+	if(getSentBCC2(x) != getCalculatedBCC2(x)) {
+		answer = CFlag == 0 ? REJ1 : REJ0;
+		sendSupervisionFrame(answer, getFileDescriptor(app));
+		return NULL;
+	}
 
-				read(getFileDescriptor(app), &frame[i], 1);
+	answer = CFlag == 0 ? RR1 : RR0;
 
-				if(i != 0 && frame[i] == FLAG)
-				break;
-			}
+	sendSupervisionFrame(answer, getFileDescriptor(app));
 
-			int k;	// Assume o valor do tamanho da data stuffed
-			for(k = 4; k < i; k++) {
-				stuffedData[k-4] = frame[k];
-			}
-
-
-
-			// Dar destuff
-			int unstuffedLength = getUnstuffedLength(stuffedData, k-4);
-			unstuffedData = (unsigned char *) malloc(unstuffedLength);
-			unstuffedData = getUnstuffedData(stuffedData, k-4);
-
-			expectedBCC2 = getBCC2(unstuffedData, unstuffedLength-1);
-
-			int j;
-
-			aux = (unsigned char *)malloc((5+unstuffedLength)*sizeof(unsigned char));
-
-			memcpy(aux, frame, 4);
-
-			for(j=4; j-4 < unstuffedLength; j++) {
-				aux[j] = unstuffedData[j-4];
-			}
-
-			aux[unstuffedLength+4] = FLAG;
-
-			for(j = 0; j < unstuffedLength - 1; j++){
-				buffer[j] = unstuffedData[j];
-			}
-
-			if(analyseFrameHeader(aux, 5+unstuffedLength, expectedBCC2) == -1) {
-				answer = CFlag == 0 ? REJ1 : REJ0;
-				sendSupervisionFrame(answer, getFileDescriptor(app));
-				return -1;
-			}
-
-			answer = CFlag == 0 ? RR1 : RR0;
-			sendSupervisionFrame(answer, getFileDescriptor(app));
-
-			return i-6;
+	return getDataFrame(x);
 }
 
 
 int readDataPackets(){
 
 		char * filename;
-		unsigned char buffer[MAX_SIZE+4];
+		unsigned char * buffer;
 		unsigned char dataPacket[MAX_SIZE+4];
-		int dataSize = 0;
 		int receivedBytes = 0;
 		long int fileSize;
 		int orderByte = -1;
@@ -704,11 +670,12 @@ int readDataPackets(){
 		begin = clock();
 
 		do {
-			if((dataSize = llread(buffer)) == -1){
-				//printf("ERROR in frame, not printing to file!\n");
-			}
-			else if(buffer[0] == 1){ // C = 1  -> Pacote de dados
+			buffer = llread(buffer);
 
+			if(buffer == NULL) {
+				printf("ERROR\n");
+			}
+			if(buffer[0] == 1){ // C = 1  -> Pacote de dados
 				if(buffer[1] != (orderByte + 1) % 256) {
 					continue;
 				}
@@ -717,12 +684,7 @@ int readDataPackets(){
 
 					int k = 256 * buffer[2] + buffer[3];
 
-					//printf("k=%d\n", k);
-
-					int i;
-					for(i = 0; i < k; i++){
-						dataPacket[i] = buffer[i+4];
-					}
+					memcpy(dataPacket, buffer+4, k);
 
 					write_frame(getTargetDescriptor(app), dataPacket, k);
 					receivedBytes += k;
@@ -774,6 +736,8 @@ int readDataPackets(){
 			}
 			progressBar(fileSize, receivedBytes);
 		} while(buffer[0] != 3);
+
+
 
 		end = clock();
 		delta = (double)(1.0*(end - begin) / CLOCKS_PER_SEC);
