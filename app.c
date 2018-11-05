@@ -14,7 +14,7 @@
 #include "api.h"
 #include "appLayer.h"
 
-#define BAUDRATE B230400
+#define BAUDRATE B115200
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
 #define FALSE 0
 #define TRUE 1
@@ -529,7 +529,7 @@ int sendFileData(int fileSize, int frameSize){
 
 	delta = end-begin;
 
-	printf("\nFile sent!\nElapsed time: %.1f seconds.\nAVG Speed: %.1f bytes per second.\n", delta, bytes/delta);
+	printf("\nFile sent!\nElapsed time: %.1f seconds.\nAVG Speed: %.1f bit/s\n", delta, bytes/delta*8);
 
 	close(getTargetDescriptor(app));
 
@@ -669,7 +669,7 @@ int readDataPackets(){
 
 		delta = end - begin;
 
-		printf("\nFile received!\nElapsed time: %.1f seconds.\nAVG Speed: %.1f bytes per second.\n", delta, fileSize/delta);
+		printf("\nFile received!\nElapsed time: %.1f seconds.\nAVG Speed: %.1f bit/s.\n", delta, fileSize/delta*8);
 		close(getTargetDescriptor(app));
 		fflush(stdout);;
 		return 0;
