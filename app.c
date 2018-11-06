@@ -41,7 +41,6 @@
 linkLayer * linkL;
 applicationLayer * app;
 int CFlag = 0;
-unsigned int attempts = 0;
 char BST[3] = {0x7D, 0x5E, 0x5D};
 
 void atende(){
@@ -602,8 +601,10 @@ int readDataPackets(){
 
 			if(buffer == NULL) {
 				printf("ERROR\n");
+				buffer = (unsigned char *) malloc(1);
+				buffer[0] = 4;
 			}
-			if(buffer[0] == 1){ // C = 1  -> Pacote de dados
+			else if(buffer[0] == 1){ // C = 1  -> Pacote de dados
 				if(buffer[1] != (orderByte + 1) % 256) {
 					continue;
 				}
