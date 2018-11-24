@@ -12,8 +12,13 @@ void printUsage()
   printf("\n\t./download ftp://<host>/<url-path>\n");
 }
 
-int main()
+int main(int argc, char *argv[])
 {
-  printUsage();
+  if (argc != 2)
+  {
+    printUsage();
+    return 0;
+  }
+
   return 0;
 }
