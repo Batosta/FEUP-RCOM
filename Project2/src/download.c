@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "url.h"
 
 #define clear() printf("\033[H\033[J")
 
@@ -19,6 +20,19 @@ int main(int argc, char *argv[])
     printUsage();
     return 0;
   }
+
+  int validation = validURL(argv[1]);
+
+  if (validation == FAIL)
+  {
+    printUsage();
+    printf("\n invalid URL.\n");
+    return 0;
+  }
+
+  url *link = getUrl();
+
+  parseURL(validation, link, argv[1]);
 
   return 0;
 }
