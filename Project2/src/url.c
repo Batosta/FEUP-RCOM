@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "url.h"
+#include "utilities.h"
 
 const char *REuserAuth = "ftp://([([A-Za-z0-9])*:([A-Za-z0-9])*@])*([A-Za-z0-9.~-])+:([0-9])+/([[A-Za-z0-9/~._-])+";
 
@@ -71,6 +72,21 @@ int validURL(char *insertedURL)
   }
 }
 
-void parseURL(int Mode, url *link, char *inserted)
+int parseURL(int Mode, url *link, char *inserted)
 {
+  if (Mode == USERAUTH)
+  {
+    int usernameStart = findOcorrenceIndex(inserted, '[', 0) + 1;
+    // printf("index= %d\n", findOcorrenceIndex(inserted, '[', 0));
+    // printf("index= %d\n", findOcorrenceIndex(inserted, ':', 3));
+    return 0;
+  }
+  else if (Mode == ANONIMOUS)
+  {
+    return 0;
+  }
+  else
+  {
+    return -1;
+  }
 }

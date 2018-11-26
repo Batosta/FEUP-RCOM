@@ -21,6 +21,6 @@ url *getUrl();
 
 int validURL(char *insertedURL);
 
-void parseURL(int Mode, url *link, char *inserted);
+int parseURL(int Mode, url *link, char *inserted);
 
 #endif

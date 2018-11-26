@@ -1,17 +1,6 @@
 #include <stdio.h>
 #include "url.h"
-
-#define clear() printf("\033[H\033[J")
-
-void printUsage()
-{
-  clear();
-
-  printf("Usage:");
-  printf("\n\t./download ftp://<user>:<password>@<host>:<port>/<url-path>");
-  printf("\nOR");
-  printf("\n\t./download ftp://<host>/<url-path>\n");
-}
+#include "utilities.h"
 
 int main(int argc, char *argv[])
 {
