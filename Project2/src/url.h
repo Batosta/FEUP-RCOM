@@ -19,6 +19,16 @@ typedef struct url
 
 url *getUrl();
 
+void setUser(url *u, char *username);
+
+void setPassword(url *u, char *password);
+
+void setHost(url *u, char *host);
+
+void setPort(url *u, char *portStr);
+
+void setPath(url *u, char *path);
+
 int validURL(char *insertedURL);
 
 int parseURL(int Mode, url *link, char *inserted);

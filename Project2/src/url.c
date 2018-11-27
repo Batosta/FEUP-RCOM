@@ -26,6 +26,33 @@ url *getUrl()
   return x;
 }
 
+void setUser(url *u, char *username)
+{
+  memcpy(u->user, username, strlen(username));
+}
+
+void setPassword(url *u, char *password)
+{
+  memcpy(u->password, password, strlen(password));
+}
+
+void setHost(url *u, char *host)
+{
+  memcpy(u->host, host, strlen(host));
+}
+
+void setPort(url *u, char *portStr)
+{
+  int port = atoi(portStr);
+
+  u->port = port;
+}
+
+void setPath(url *u, char *path)
+{
+  memcpy(u->path, path, strlen(path));
+}
+
 int validURL(char *insertedURL)
 {
   regex_t *detectUser, *detectAnonimous;
@@ -102,11 +129,11 @@ int parseURL(int Mode, url *link, char *inserted)
     path = (char *)malloc(length - (portEnd + 1));
     memcpy(path, inserted + portEnd + 1, length - (portEnd + 1));
 
-    printf("\nUsername: %s \n", username);
-    printf("Password: %s \n", password);
-    printf("Host: %s \n", host);
-    printf("Port: %s \n", portStr);
-    printf("Path: %s \n", path);
+    setUser(link, username);
+    setPassword(link, password);
+    setHost(link, host);
+    setPort(link, portStr);
+    setPath(link, path);
 
     return 0;
   }
