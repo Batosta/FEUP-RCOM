@@ -99,7 +99,7 @@ int validURL(char *insertedURL)
   }
 }
 
-int parseURL(int Mode, url *link, char *inserted)
+int parseUserAuthUrl(url *link, char *inserted)
 {
   char *username, *password, *host, *portStr, *path;
 
@@ -107,35 +107,61 @@ int parseURL(int Mode, url *link, char *inserted)
 
   length = strlen(inserted);
 
+  if ((usernameStart = findOcorrenceIndex(inserted, '[', 0) + 1) == -1)
+  {
+    return FAIL;
+  }
+  if ((usernameEnd = findOcorrenceIndex(inserted, ':', usernameStart)) == -1)
+  {
+    return FAIL;
+  }
+  username = (char *)malloc(usernameEnd - usernameStart);
+  memcpy(username, inserted + usernameStart, usernameEnd - usernameStart);
+
+  if ((pwEnd = findOcorrenceIndex(inserted, '@', usernameEnd + 1)) == -1)
+  {
+    return FAIL;
+  }
+  password = (char *)malloc(pwEnd - (usernameEnd + 1));
+  memcpy(password, inserted + usernameEnd + 1, pwEnd - (usernameEnd + 1));
+
+  if ((hostEnd = findOcorrenceIndex(inserted, ':', pwEnd + 1)) == -1)
+  {
+    return FAIL;
+  }
+  host = (char *)malloc(hostEnd - (pwEnd + 2));
+  memcpy(host, inserted + pwEnd + 2, hostEnd - (pwEnd + 2));
+
+  if ((portEnd = findOcorrenceIndex(inserted, '/', hostEnd + 1)) == -1)
+  {
+    return FAIL;
+  }
+  portStr = (char *)malloc(portEnd - (hostEnd + 1));
+  memcpy(portStr, inserted + hostEnd + 1, portEnd - (hostEnd + 1));
+
+  path = (char *)malloc(length - (portEnd + 1));
+  memcpy(path, inserted + portEnd + 1, length - (portEnd + 1));
+
+  setUser(link, username);
+  setPassword(link, password);
+  setHost(link, host);
+  setPort(link, portStr);
+  setPath(link, path);
+
+  free(username);
+  free(password);
+  free(host);
+  free(portStr);
+  free(path);
+
+  return 0;
+}
+
+int parseURL(int Mode, url *link, char *inserted)
+{
   if (Mode == USERAUTH)
   {
-    usernameStart = findOcorrenceIndex(inserted, '[', 0) + 1;
-    usernameEnd = findOcorrenceIndex(inserted, ':', usernameStart);
-    username = (char *)malloc(usernameEnd - usernameStart);
-    memcpy(username, inserted + usernameStart, usernameEnd - usernameStart);
-
-    pwEnd = findOcorrenceIndex(inserted, '@', usernameEnd + 1);
-    password = (char *)malloc(pwEnd - (usernameEnd + 1));
-    memcpy(password, inserted + usernameEnd + 1, pwEnd - (usernameEnd + 1));
-
-    hostEnd = findOcorrenceIndex(inserted, ':', pwEnd + 1);
-    host = (char *)malloc(hostEnd - (pwEnd + 2));
-    memcpy(host, inserted + pwEnd + 2, hostEnd - (pwEnd + 2));
-
-    portEnd = findOcorrenceIndex(inserted, '/', hostEnd + 1);
-    portStr = (char *)malloc(portEnd - (hostEnd + 1));
-    memcpy(portStr, inserted + hostEnd + 1, portEnd - (hostEnd + 1));
-
-    path = (char *)malloc(length - (portEnd + 1));
-    memcpy(path, inserted + portEnd + 1, length - (portEnd + 1));
-
-    setUser(link, username);
-    setPassword(link, password);
-    setHost(link, host);
-    setPort(link, portStr);
-    setPath(link, path);
-
-    return 0;
+    return parseUserAuthUrl(link, inserted);
   }
   else if (Mode == ANONIMOUS)
   {

@@ -31,6 +31,8 @@ void setPath(url *u, char *path);
 
 int validURL(char *insertedURL);
 
+int parseUserAuthUrl(url *link, char *inserted);
+
 int parseURL(int Mode, url *link, char *inserted);
 
 #endif

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "url.h"
 #include "utilities.h"
+#include <stdlib.h>
 
 int main(int argc, char *argv[])
 {
@@ -21,7 +22,11 @@ int main(int argc, char *argv[])
 
   url *link = getUrl();
 
-  parseURL(validation, link, argv[1]);
+  if (parseURL(validation, link, argv[1]) != 0)
+  {
+    printf("Error parsing URL.\n");
+    exit(0);
+  }
 
   return 0;
 }
