@@ -2,6 +2,7 @@
 #define URL_H
 
 #define PARAM_SIZE 256
+#define h_addr h_addr_list[0] //The first address in h_addr_list.
 
 #define USERAUTH 1
 #define ANONIMOUS 0
@@ -32,7 +33,11 @@ void setPath(url *u, char *path);
 
 void setMode(url *u, int mode);
 
+void setIp(url *u, char *path);
+
 int getMode(url *u);
+
+unsigned char *getHost(url *u);
 
 int validURL(char *insertedURL);
 
@@ -41,5 +46,7 @@ int parseUserAuthUrl(url *link, char *inserted);
 int parseAnonimousAuth(url *link, char *inserted);
 
 int parseURL(url *link, char *inserted);
+
+int extractIp(url *link);
 
 #endif

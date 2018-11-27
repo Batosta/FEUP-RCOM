@@ -2,6 +2,10 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <netdb.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include "url.h"
 #include "utilities.h"
 
@@ -58,9 +62,19 @@ void setMode(url *u, int mode)
   u->mode = mode;
 }
 
+void setIp(url *u, char *ip)
+{
+  memcpy(u->ip, ip, strlen(ip));
+}
+
 int getMode(url *u)
 {
   return u->mode;
+}
+
+unsigned char *getHost(url *u)
+{
+  return u->host;
 }
 
 int validURL(char *insertedURL)
@@ -212,4 +226,25 @@ int parseURL(url *link, char *inserted)
   default:
     return FAIL;
   }
+}
+
+int extractIp(url *link)
+{
+  const char *host;
+  char *ip;
+  struct hostent *hostInfo;
+
+  host = (char *)getHost(link);
+
+  if ((hostInfo = gethostbyname(host)) == NULL)
+  {
+    perror("gethostbyname");
+    return FAIL;
+  }
+
+  ip = inet_ntoa(*((struct in_addr *)hostInfo->h_addr));
+
+  setIp(link, ip);
+
+  return 0;
 }

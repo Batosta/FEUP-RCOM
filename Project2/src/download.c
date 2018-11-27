@@ -5,13 +5,16 @@
 
 int main(int argc, char *argv[])
 {
+  url *link;
+  int validation;
+
   if (argc != 2)
   {
     printUsage();
     return 0;
   }
 
-  int validation = validURL(argv[1]);
+  validation = validURL(argv[1]);
 
   if (validation == FAIL)
   {
@@ -20,13 +23,19 @@ int main(int argc, char *argv[])
     return 0;
   }
 
-  url *link = getUrl();
+  link = getUrl();
 
   setMode(link, validation);
 
   if (parseURL(link, argv[1]) == FAIL)
   {
     printf("Error parsing URL.\n");
+    exit(0);
+  }
+
+  if (extractIp(link) == FAIL)
+  {
+    printf("Error getting IP from URL.\n");
     exit(0);
   }
 
