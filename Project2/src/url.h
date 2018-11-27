@@ -15,6 +15,7 @@ typedef struct url
   unsigned char ip[PARAM_SIZE];
   unsigned char path[PARAM_SIZE];
   unsigned int port;
+  unsigned int mode;
 } url;
 
 url *getUrl();
@@ -29,12 +30,16 @@ void setPort(url *u, char *portStr);
 
 void setPath(url *u, char *path);
 
+void setMode(url *u, int mode);
+
+int getMode(url *u);
+
 int validURL(char *insertedURL);
 
 int parseUserAuthUrl(url *link, char *inserted);
 
 int parseAnonimousAuth(url *link, char *inserted);
 
-int parseURL(int Mode, url *link, char *inserted);
+int parseURL(url *link, char *inserted);
 
 #endif

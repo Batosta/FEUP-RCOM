@@ -53,6 +53,16 @@ void setPath(url *u, char *path)
   memcpy(u->path, path, strlen(path));
 }
 
+void setMode(url *u, int mode)
+{
+  u->mode = mode;
+}
+
+int getMode(url *u)
+{
+  return u->mode;
+}
+
 int validURL(char *insertedURL)
 {
   regex_t *detectUser, *detectAnonimous;
@@ -191,18 +201,15 @@ int parseAnonimousAuth(url *link, char *inserted)
   return 0;
 }
 
-int parseURL(int Mode, url *link, char *inserted)
+int parseURL(url *link, char *inserted)
 {
-  if (Mode == USERAUTH)
+  switch (getMode(link))
   {
+  case USERAUTH:
     return parseUserAuthUrl(link, inserted);
-  }
-  else if (Mode == ANONIMOUS)
-  {
+  case ANONIMOUS:
     return parseAnonimousAuth(link, inserted);
-  }
-  else
-  {
-    return -1;
+  default:
+    return FAIL;
   }
 }

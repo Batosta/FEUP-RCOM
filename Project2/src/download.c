@@ -22,7 +22,9 @@ int main(int argc, char *argv[])
 
   url *link = getUrl();
 
-  if (parseURL(validation, link, argv[1]) != 0)
+  setMode(link, validation);
+
+  if (parseURL(link, argv[1]) == FAIL)
   {
     printf("Error parsing URL.\n");
     exit(0);
