@@ -139,8 +139,8 @@ int parseUserAuthUrl(url *link, char *inserted)
   portStr = (char *)malloc(portEnd - (hostEnd + 1));
   memcpy(portStr, inserted + hostEnd + 1, portEnd - (hostEnd + 1));
 
-  path = (char *)malloc(length - (portEnd + 1));
-  memcpy(path, inserted + portEnd + 1, length - (portEnd + 1));
+  path = (char *)malloc(length - portEnd);
+  memcpy(path, inserted + portEnd, length - portEnd);
 
   setUser(link, username);
   setPassword(link, password);
@@ -157,6 +157,40 @@ int parseUserAuthUrl(url *link, char *inserted)
   return 0;
 }
 
+int parseAnonimousAuth(url *link, char *inserted)
+{
+  int hostStart, hostEnd, length;
+  char *host, *path;
+
+  length = strlen(inserted);
+
+  if ((hostStart = findOcorrenceIndex(inserted, '/', 0)) == -1)
+  {
+    return FAIL;
+  }
+
+  hostStart += 2; // /->/-> <path>
+
+  if ((hostEnd = findOcorrenceIndex(inserted, '/', hostStart)) == -1)
+  {
+    return FAIL;
+  }
+
+  host = (char *)malloc(hostEnd - hostStart);
+  memcpy(host, inserted + hostStart, hostEnd - hostStart);
+
+  path = (char *)malloc(length - hostEnd);
+  memcpy(path, inserted + hostEnd, length - hostEnd);
+
+  setHost(link, host);
+  setPath(link, path);
+
+  free(host);
+  free(path);
+
+  return 0;
+}
+
 int parseURL(int Mode, url *link, char *inserted)
 {
   if (Mode == USERAUTH)
@@ -165,7 +199,7 @@ int parseURL(int Mode, url *link, char *inserted)
   }
   else if (Mode == ANONIMOUS)
   {
-    return 0;
+    return parseAnonimousAuth(link, inserted);
   }
   else
   {
