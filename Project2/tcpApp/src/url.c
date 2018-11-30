@@ -72,6 +72,16 @@ int getMode(url *u)
   return u->mode;
 }
 
+unsigned char *getIpAdress(url *u)
+{
+  return u->ip;
+}
+
+int getPort(url *u)
+{
+  return u->port;
+}
+
 unsigned char *getHost(url *u)
 {
   return u->host;

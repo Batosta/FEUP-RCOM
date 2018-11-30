@@ -37,7 +37,11 @@ void setIp(url *u, char *path);
 
 int getMode(url *u);
 
+unsigned char *getIpAdress(url *u);
+
 unsigned char *getHost(url *u);
+
+int getPort(url *u);
 
 int validURL(char *insertedURL);
 

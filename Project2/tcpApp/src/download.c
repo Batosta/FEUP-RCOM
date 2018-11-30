@@ -1,11 +1,13 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include "url.h"
 #include "utilities.h"
-#include <stdlib.h>
+#include "ftpController.h"
 
 int main(int argc, char *argv[])
 {
   url *link;
+  ftpController *connection;
   int validation;
 
   if (argc != 2)
@@ -38,6 +40,10 @@ int main(int argc, char *argv[])
     printf("Error getting IP from URL.\n");
     exit(0);
   }
+
+  connection = getController();
+
+  setFtpControlFileDescriptor(connection, startConnection(link));
 
   return 0;
 }
