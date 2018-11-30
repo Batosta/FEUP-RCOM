@@ -8,6 +8,10 @@
 #define ANONIMOUS 0
 #define FAIL -1
 
+#define ANONIMOUS_USER "anonymous"
+#define ANONIMOUS_PASSWORD "mail@domain"
+#define ANONIMOUS_PORT "21"
+
 typedef struct url
 {
   unsigned char user[PARAM_SIZE];

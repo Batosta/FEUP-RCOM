@@ -218,6 +218,9 @@ int parseAnonimousAuth(url *link, char *inserted)
 
   setHost(link, host);
   setPath(link, path);
+  setUser(link, ANONIMOUS_USER);
+  setPassword(link, ANONIMOUS_PASSWORD);
+  setPort(link, ANONIMOUS_PORT);
 
   free(host);
   free(path);
