@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <libgen.h>
 #include <errno.h>
+#include <sys/types.h>
 
 ftpController *getController()
 {
@@ -53,9 +54,34 @@ int startConnection(url *u)
 
   if (connect(fd, (struct sockaddr *)serverAddr, sizeof(struct sockaddr_in)) < 0)
   {
-    perror("Failed to connect to server!");
+    perror("Failed to connect to server");
     return FAIL;
   }
 
+  free(serverAddr);
+
   return fd;
+}
+
+int ftpExpectCommand(ftpController *connection, int expectation)
+{
+  int code = -1;
+  int response;
+  char frame[FRAME_LENGTH];
+  char *codeAux = (char *)malloc(3);
+
+  do
+  {
+    memset(frame, 0, FRAME_LENGTH);
+    memset(codeAux, 0, 3);
+    read(connection->controlFd, frame, FRAME_LENGTH);
+    memcpy(codeAux, frame, 3);
+    code = atoi(codeAux);
+  } while (code <= 0);
+
+  response = code == expectation ? SUCCESS : FAIL;
+
+  free(codeAux);
+
+  return response;
 }

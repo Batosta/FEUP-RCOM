@@ -7,6 +7,7 @@
 #define USERAUTH 1
 #define ANONIMOUS 0
 #define FAIL -1
+#define SUCCESS 1
 
 #define ANONIMOUS_USER "anonymous"
 #define ANONIMOUS_PASSWORD "mail@domain"

@@ -8,12 +8,12 @@ int main(int argc, char *argv[])
 {
   url *link;
   ftpController *connection;
-  int validation;
+  int validation, socketFd;
 
   if (argc != 2)
   {
     printUsage();
-    return 0;
+    return FAIL;
   }
 
   validation = validURL(argv[1]);
@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
   {
     printUsage();
     printf("\n invalid URL.\n");
-    return 0;
+    return FAIL;
   }
 
   link = getUrl();
@@ -32,18 +32,30 @@ int main(int argc, char *argv[])
   if (parseURL(link, argv[1]) == FAIL)
   {
     printf("Error parsing URL.\n");
-    exit(0);
+    return FAIL;
   }
 
   if (extractIp(link) == FAIL)
   {
     printf("Error getting IP from URL.\n");
-    exit(0);
+    return FAIL;
   }
 
   connection = getController();
 
-  setFtpControlFileDescriptor(connection, startConnection(link));
+  if ((socketFd = startConnection(link)) == FAIL)
+  {
+    return FAIL;
+  }
+
+  setFtpControlFileDescriptor(connection, socketFd);
+
+  if (ftpExpectCommand(connection, 220) == FAIL)
+  {
+    perror("HOST didn't send the right code");
+
+    return FAIL;
+  }
 
   return 0;
 }
