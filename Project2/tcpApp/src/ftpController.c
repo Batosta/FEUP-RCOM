@@ -1,5 +1,6 @@
 #include "ftpController.h"
 #include "url.h"
+#include "utilities.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -63,6 +64,18 @@ int startConnection(url *u)
   return fd;
 }
 
+int ftpSendCommand(ftpController *connection, char *command)
+{
+  if (write(connection->controlFd, command, strlen(command)) != strlen(command))
+  {
+    return FAIL;
+  }
+
+  //printf("COMMAND SENT: %s-> %ld\n", command, strlen(command));
+
+  return SUCCESS;
+}
+
 int ftpExpectCommand(ftpController *connection, int expectation)
 {
   int code = -1;
@@ -77,11 +90,68 @@ int ftpExpectCommand(ftpController *connection, int expectation)
     read(connection->controlFd, frame, FRAME_LENGTH);
     memcpy(codeAux, frame, 3);
     code = atoi(codeAux);
-  } while (code <= 0);
+
+    //printf("%s \n", frame);
+
+    //printf("%d =?= %d\n", code, expectation);
+
+  } while (code != expectation && frame[3] != ' ');
+
+  printf("RESPONSE: %d\n", code);
 
   response = code == expectation ? SUCCESS : FAIL;
 
   free(codeAux);
 
   return response;
+}
+
+int login(ftpController *connection, url *link)
+{
+  char *userCommand, *passwordCommand, *user, *password;
+
+  user = (char *)link->user;
+
+  password = (char *)link->password;
+
+  userCommand = (char *)malloc(sizeof(user) + strlen("USER \r\n"));
+
+  sprintf(userCommand, "USER %s\n", user);
+
+  if (ftpSendCommand(connection, userCommand) == FAIL)
+  {
+    printf("ERROR Sending user command\n");
+    free(userCommand);
+    return FAIL;
+  }
+
+  free(userCommand);
+  //printf("User command sent!\n");
+
+  if (ftpExpectCommand(connection, SERVICE_NEED_PASSWORD) == FAIL)
+  {
+    printf("ERROR Wrong response from server\n");
+    return FAIL;
+  }
+
+  passwordCommand = (char *)malloc(sizeof(password) + strlen("PASS \r\n"));
+
+  sprintf(passwordCommand, "PASS %s\r\n", password);
+
+  if (ftpSendCommand(connection, passwordCommand) == FAIL)
+  {
+    printf("ERROR Sending user command\n");
+    free(passwordCommand);
+    return FAIL;
+  }
+
+  free(passwordCommand);
+
+  if (ftpExpectCommand(connection, SERVICE_USER_LOGGEDIN) == FAIL)
+  {
+    printf("ERROR Wrong response from server\n");
+    return FAIL;
+  }
+
+  return SUCCESS;
 }

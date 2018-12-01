@@ -7,4 +7,5 @@ void printUsage();
 
 int findOcorrenceIndex(char *str, char toFind, int startSearch);
 
+int write_frame(int fd, char *frame, unsigned int length);
 #endif

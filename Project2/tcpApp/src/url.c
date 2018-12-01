@@ -67,6 +67,16 @@ void setIp(url *u, char *ip)
   memcpy(u->ip, ip, strlen(ip));
 }
 
+void printInfo(url *u)
+{
+  printf("\nusername: %s\n", u->user);
+  printf("password: %s\n", u->password);
+  printf("host: %s\n", u->host);
+  printf("ip: %s\n", u->ip);
+  printf("path: %s\n", u->path);
+  printf("port: %d\n\n", u->port);
+}
+
 int getMode(url *u)
 {
   return u->mode;
@@ -118,6 +128,9 @@ int validURL(char *insertedURL)
   userAuthTest = regexec(detectUser, insertedURL, matchSize, match, REG_EXTENDED);
 
   anonimousAuthTest = regexec(detectAnonimous, insertedURL, matchSize, match, REG_EXTENDED);
+
+  free(detectUser);
+  free(detectAnonimous);
 
   if (userAuthTest == 0)
   {

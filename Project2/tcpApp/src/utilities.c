@@ -1,6 +1,7 @@
 #include "utilities.h"
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 void printUsage()
 {
@@ -31,4 +32,24 @@ int findOcorrenceIndex(char *str, char toFind, int startSearch)
   }
 
   return -1;
+}
+
+/*
+Função que tenta dar write dos frames.
+*/
+int write_frame(int fd, char *frame, unsigned int length)
+{
+  int aux, total = 0;
+
+  while (total < length)
+  {
+    aux = write(fd, frame, length);
+
+    if (aux <= 0)
+      return -1;
+
+    total += aux;
+  }
+
+  return total;
 }

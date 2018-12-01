@@ -40,6 +40,8 @@ void setMode(url *u, int mode);
 
 void setIp(url *u, char *path);
 
+void printInfo();
+
 int getMode(url *u);
 
 unsigned char *getIpAdress(url *u);

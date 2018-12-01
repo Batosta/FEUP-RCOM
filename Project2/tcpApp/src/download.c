@@ -41,6 +41,8 @@ int main(int argc, char *argv[])
     return FAIL;
   }
 
+  printInfo(link);
+
   connection = getController();
 
   if ((socketFd = startConnection(link)) == FAIL)
@@ -50,12 +52,20 @@ int main(int argc, char *argv[])
 
   setFtpControlFileDescriptor(connection, socketFd);
 
-  if (ftpExpectCommand(connection, 220) == FAIL)
+  if (ftpExpectCommand(connection, SERVICE_READY_NEW_USER) == FAIL)
   {
     perror("HOST didn't send the right code");
 
     return FAIL;
   }
+
+  if (login(connection, link) == FAIL)
+  {
+    perror("Failed to authenticate\n");
+    return FAIL;
+  }
+
+  printf("Authenticated!\n");
 
   return 0;
 }
