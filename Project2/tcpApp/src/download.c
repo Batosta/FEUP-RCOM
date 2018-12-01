@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <signal.h>
 #include "url.h"
 #include "utilities.h"
 #include "ftpController.h"
@@ -10,6 +11,7 @@ int main(int argc, char *argv[])
   ftpController *connection;
   int validation, socketFd;
 
+  
   if (argc != 2)
   {
     printUsage();

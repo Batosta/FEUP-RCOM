@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <signal.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -11,6 +12,14 @@
 #include <libgen.h>
 #include <errno.h>
 #include <sys/types.h>
+
+int flag = 0, tries = 1, maxTries = 1;
+
+void timeOutWarning()
+{
+  flag = 1;
+  printf("\nAtempting to connect %d/%d\n", tries, TIMEOUT_MAX_TRIES);
+}
 
 ftpController *getController()
 {
@@ -85,11 +94,24 @@ int ftpExpectCommand(ftpController *connection, int expectation)
 
   do
   {
+    if (flag == 0)
+    {
+      alarm(1);
+      tries++;
+      flag = 1;
+    }
+
     memset(frame, 0, FRAME_LENGTH);
     memset(codeAux, 0, 3);
     read(connection->controlFd, frame, FRAME_LENGTH);
     memcpy(codeAux, frame, 3);
     code = atoi(codeAux);
+
+    if (tries == TIMEOUT_MAX_TRIES)
+    {
+      printf("TIMED OUT!");
+      break;
+    }
 
     //printf("%s \n", frame);
 
@@ -102,6 +124,10 @@ int ftpExpectCommand(ftpController *connection, int expectation)
   response = code == expectation ? SUCCESS : FAIL;
 
   free(codeAux);
+
+  alarm(0);
+  tries = 1;
+  flag = 0;
 
   return response;
 }
@@ -117,6 +143,8 @@ int login(ftpController *connection, url *link)
   userCommand = (char *)malloc(sizeof(user) + strlen("USER \r\n"));
 
   sprintf(userCommand, "USER %s\n", user);
+
+  (void)signal(SIGALRM, timeOutWarning);
 
   if (ftpSendCommand(connection, userCommand) == FAIL)
   {
