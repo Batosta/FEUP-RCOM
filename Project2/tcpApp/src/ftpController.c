@@ -33,6 +33,19 @@ void setFtpControlFileDescriptor(ftpController *x, int fd)
   x->controlFd = fd;
 }
 
+int setPassiveIpAndPort(ftpController *x, int *ipInfo)
+{
+  if ((sprintf(x->passiveIp, "%d.%d.%d.%d", ipInfo[0], ipInfo[1], ipInfo[2], ipInfo[3])) < 0)
+  {
+    printf("Failed to set passive ip address.\n");
+    return FAIL;
+  }
+
+  x->passivePort = ipInfo[4] * 256 + ipInfo[5];
+
+  return SUCCESS;
+}
+
 struct sockaddr_in *getServerAdress(url *u)
 {
   struct sockaddr_in *serverAddr;
@@ -184,6 +197,102 @@ int login(ftpController *connection, url *link)
   return SUCCESS;
 }
 
+char *retriveMessageFromServer(ftpController *connection, int expectation)
+{
+  char frame[FRAME_LENGTH];
+  char *message, *codeAux;
+  int code = -1;
+
+  codeAux = (char *)malloc(3);
+
+  do
+  {
+    if (flag == 0)
+    {
+      alarm(1);
+      tries++;
+      flag = 1;
+    }
+
+    memset(frame, 0, FRAME_LENGTH);
+    memset(codeAux, 0, 3);
+    read(connection->controlFd, frame, FRAME_LENGTH);
+
+    //printf("FRAME -> %s\n", frame);
+
+    memcpy(codeAux, frame, 3);
+    code = atoi(codeAux);
+
+    if (tries == TIMEOUT_MAX_TRIES)
+    {
+      printf("TIMED OUT!");
+      break;
+    }
+
+  } while (code != expectation && frame[3] != ' ');
+
+  alarm(0);
+  tries = 1;
+  flag = 0;
+
+  free(codeAux);
+
+  if (code != expectation)
+  {
+    return NULL;
+  }
+
+  message = (char *)malloc(strlen(frame) * sizeof(char));
+
+  memcpy(message, frame, strlen(frame));
+
+  return message;
+}
+
+int *parsePassiveIp(char *serverMessage)
+{
+  int *ipInfo = (int *)malloc(6 * sizeof(int));
+
+  if ((sscanf(serverMessage, "227 Entering Passive Mode (%d,%d,%d,%d,%d,%d).", &ipInfo[0], &ipInfo[1], &ipInfo[2], &ipInfo[3], &ipInfo[4], &ipInfo[5])) < 0)
+  {
+    printf("Couldn't parse passive IP info.\n");
+    return NULL;
+  }
+
+  return ipInfo;
+}
+
 int enterPassiveMode(ftpController *connection)
 {
+  char *passiveCommand, *serverAnswer;
+  int *ipInfo;
+
+  passiveCommand = (char *)malloc(strlen("PASV \n") * sizeof(char));
+
+  memcpy(passiveCommand, "PASV \n", strlen("PASV \n"));
+
+  if (ftpSendCommand(connection, passiveCommand) == FAIL)
+  {
+    printf("ERROR: can't send passive command!\n");
+    free(passiveCommand);
+    return FAIL;
+  }
+
+  free(passiveCommand);
+
+  serverAnswer = retriveMessageFromServer(connection, SERVICE_ENTERING_PASSIVE_MODE);
+
+  if (serverAnswer == NULL)
+  {
+    printf("SERVER didn't answer");
+    return FAIL;
+  }
+
+  ipInfo = parsePassiveIp(serverAnswer);
+
+  setPassiveIpAndPort(connection, ipInfo);
+
+  printf("PASSIVE IP: %s PORT: %d\n", connection->passiveIp, connection->passivePort);
+
+  return SUCCESS;
 }

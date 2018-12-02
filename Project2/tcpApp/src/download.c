@@ -11,7 +11,6 @@ int main(int argc, char *argv[])
   ftpController *connection;
   int validation, socketFd;
 
-  
   if (argc != 2)
   {
     printUsage();
@@ -68,6 +67,12 @@ int main(int argc, char *argv[])
   }
 
   printf("Authenticated!\n");
+
+  if (enterPassiveMode(connection) == FAIL)
+  {
+    perror("Could not enter passive mode!\n");
+    return FAIL;
+  }
 
   return 0;
 }
