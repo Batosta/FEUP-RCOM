@@ -76,5 +76,11 @@ int main(int argc, char *argv[])
 
   setDataFileDescriptor(connection);
 
+  if (requestFile(connection, link) == FAIL)
+  {
+    perror("Request file from server failed!\n");
+    return FAIL;
+  }
+
   return 0;
 }

@@ -156,58 +156,6 @@ int ftpExpectCommand(ftpController *connection, int expectation)
   return response;
 }
 
-int login(ftpController *connection, url *link)
-{
-  char *userCommand, *passwordCommand, *user, *password;
-
-  user = (char *)link->user;
-
-  password = (char *)link->password;
-
-  userCommand = (char *)malloc(sizeof(user) + strlen("USER \r\n"));
-
-  sprintf(userCommand, "USER %s\n", user);
-
-  (void)signal(SIGALRM, timeOutWarning);
-
-  if (ftpSendCommand(connection, userCommand) == FAIL)
-  {
-    printf("ERROR Sending user command\n");
-    free(userCommand);
-    return FAIL;
-  }
-
-  free(userCommand);
-  //printf("User command sent!\n");
-
-  if (ftpExpectCommand(connection, SERVICE_NEED_PASSWORD) == FAIL)
-  {
-    printf("ERROR Wrong response from server\n");
-    return FAIL;
-  }
-
-  passwordCommand = (char *)malloc(sizeof(password) + strlen("PASS \r\n"));
-
-  sprintf(passwordCommand, "PASS %s\r\n", password);
-
-  if (ftpSendCommand(connection, passwordCommand) == FAIL)
-  {
-    printf("ERROR Sending user command\n");
-    free(passwordCommand);
-    return FAIL;
-  }
-
-  free(passwordCommand);
-
-  if (ftpExpectCommand(connection, SERVICE_USER_LOGGEDIN) == FAIL)
-  {
-    printf("ERROR Wrong response from server\n");
-    return FAIL;
-  }
-
-  return SUCCESS;
-}
-
 char *retriveMessageFromServer(ftpController *connection, int expectation)
 {
   char frame[FRAME_LENGTH];
@@ -260,6 +208,58 @@ char *retriveMessageFromServer(ftpController *connection, int expectation)
   return message;
 }
 
+int login(ftpController *connection, url *link)
+{
+  char *userCommand, *passwordCommand, *user, *password;
+
+  user = (char *)link->user;
+
+  password = (char *)link->password;
+
+  userCommand = (char *)malloc(sizeof(user) + strlen("USER \r\n"));
+
+  sprintf(userCommand, "USER %s\n", user);
+
+  (void)signal(SIGALRM, timeOutWarning);
+
+  if (ftpSendCommand(connection, userCommand) == FAIL)
+  {
+    printf("ERROR Sending user command\n");
+    free(userCommand);
+    return FAIL;
+  }
+
+  free(userCommand);
+  //printf("User command sent!\n");
+
+  if (ftpExpectCommand(connection, SERVICE_NEED_PASSWORD) == FAIL)
+  {
+    printf("ERROR Wrong response from server\n");
+    return FAIL;
+  }
+
+  passwordCommand = (char *)malloc(sizeof(password) + strlen("PASS \r\n"));
+
+  sprintf(passwordCommand, "PASS %s\r\n", password);
+
+  if (ftpSendCommand(connection, passwordCommand) == FAIL)
+  {
+    printf("ERROR Sending user command\n");
+    free(passwordCommand);
+    return FAIL;
+  }
+
+  free(passwordCommand);
+
+  if (ftpExpectCommand(connection, SERVICE_USER_LOGGEDIN) == FAIL)
+  {
+    printf("ERROR Wrong response from server\n");
+    return FAIL;
+  }
+
+  return SUCCESS;
+}
+
 int *parsePassiveIp(char *serverMessage)
 {
   int *ipInfo = (int *)malloc(6 * sizeof(int));
@@ -306,4 +306,30 @@ int enterPassiveMode(ftpController *connection)
   printf("PASSIVE IP: %s PORT: %d\n", connection->passiveIp, connection->passivePort);
 
   return SUCCESS;
+}
+
+int requestFile(ftpController *connection, url *link)
+{
+  char *fileRequest, *filePath;
+
+  filePath = (char *)link->path;
+
+  fileRequest = (char *)malloc((strlen("RETR \n") + strlen(filePath)) * sizeof(char));
+
+  sprintf(fileRequest, "RETR %s\n", filePath);
+
+  if (ftpSendCommand(connection, fileRequest) == FAIL)
+  {
+    printf("ERROR: can't send request command!\n");
+    free(fileRequest);
+    return FAIL;
+  }
+
+  if (ftpExpectCommand(connection, SERVICE_FILE_OK) == FAIL)
+  {
+    printf("ERROR: request error\n");
+    return FAIL;
+  }
+
+  return 0;
 }

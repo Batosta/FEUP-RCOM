@@ -11,6 +11,7 @@
 #define SERVICE_NEED_PASSWORD 331
 #define SERVICE_USER_LOGGEDIN 230
 #define SERVICE_ENTERING_PASSIVE_MODE 227
+#define SERVICE_FILE_OK 150
 
 typedef struct ftpController
 {
@@ -41,5 +42,7 @@ int login(ftpController *connection, url *link);
 int *parsePassiveIp(char *serverMessage);
 
 int enterPassiveMode(ftpController *connection);
+
+int requestFile(ftpController *connection, url *link);
 
 #endif
