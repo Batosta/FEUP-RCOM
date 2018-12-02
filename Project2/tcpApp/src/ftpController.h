@@ -15,6 +15,8 @@ typedef struct ftpController
 {
   int controlFd;
   int dataFd;
+  char *passiveIp;
+  int passivePort;
 } ftpController;
 
 ftpController *getController();
@@ -30,5 +32,7 @@ int ftpSendCommand(ftpController *connection, char *command);
 int ftpExpectCommand(ftpController *connection, int expectation);
 
 int login(ftpController *connection, url *link);
+
+int enterPassiveMode(ftpController *connection);
 
 #endif

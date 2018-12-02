@@ -183,3 +183,7 @@ int login(ftpController *connection, url *link)
 
   return SUCCESS;
 }
+
+int enterPassiveMode(ftpController *connection)
+{
+}
