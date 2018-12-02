@@ -24,11 +24,13 @@ ftpController *getController();
 
 void setFtpControlFileDescriptor(ftpController *x, int fd);
 
+int setDataFileDescriptor(ftpController *x);
+
 int setPassiveIpAndPort(ftpController *x, int *ipInfo);
 
-struct sockaddr_in *getServerAdress(url *u);
+struct sockaddr_in *getServerAdress(const char *ipAdress, int port);
 
-int startConnection(url *u);
+int startConnection(const char *ip, int port);
 
 int ftpSendCommand(ftpController *connection, char *command);
 

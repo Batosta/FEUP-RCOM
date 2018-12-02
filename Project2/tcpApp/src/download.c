@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
 
   connection = getController();
 
-  if ((socketFd = startConnection(link)) == FAIL)
+  if ((socketFd = startConnection((const char *)getIpAdress(link), getPort(link))) == FAIL)
   {
     return FAIL;
   }
@@ -73,6 +73,8 @@ int main(int argc, char *argv[])
     perror("Could not enter passive mode!\n");
     return FAIL;
   }
+
+  setDataFileDescriptor(connection);
 
   return 0;
 }

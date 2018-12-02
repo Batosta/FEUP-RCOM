@@ -46,7 +46,18 @@ int setPassiveIpAndPort(ftpController *x, int *ipInfo)
   return SUCCESS;
 }
 
-struct sockaddr_in *getServerAdress(url *u)
+int setDataFileDescriptor(ftpController *x)
+{
+  if ((x->dataFd = startConnection(x->passiveIp, x->passivePort)) < 0)
+  {
+    printf("Cannot connect data socket");
+    return FAIL;
+  }
+
+  return SUCCESS;
+}
+
+struct sockaddr_in *getServerAdress(const char *ipAdress, int port)
 {
   struct sockaddr_in *serverAddr;
 
@@ -54,18 +65,18 @@ struct sockaddr_in *getServerAdress(url *u)
 
   bzero((char *)serverAddr, sizeof(serverAddr));
   serverAddr->sin_family = AF_INET;
-  serverAddr->sin_addr.s_addr = inet_addr((const char *)getIpAdress(u));
-  serverAddr->sin_port = htons(getPort(u));
+  serverAddr->sin_addr.s_addr = inet_addr(ipAdress);
+  serverAddr->sin_port = htons(port);
 
   return serverAddr;
 }
 
-int startConnection(url *u)
+int startConnection(const char *ip, int port)
 {
   int fd;
   struct sockaddr_in *serverAddr;
 
-  serverAddr = getServerAdress(u);
+  serverAddr = getServerAdress(ip, port);
 
   fd = socket(AF_INET, SOCK_STREAM, 0);
 
