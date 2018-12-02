@@ -143,7 +143,7 @@ int ftpExpectCommand(ftpController *connection, int expectation)
 
   } while (code != expectation && frame[3] != ' ');
 
-  printf("RESPONSE: %d\n", code);
+  //printf("RESPONSE: %d\n", code);
 
   response = code == expectation ? SUCCESS : FAIL;
 
@@ -303,14 +303,14 @@ int enterPassiveMode(ftpController *connection)
 
   setPassiveIpAndPort(connection, ipInfo);
 
-  printf("PASSIVE IP: %s PORT: %d\n", connection->passiveIp, connection->passivePort);
+  //printf("PASSIVE IP: %s PORT: %d\n", connection->passiveIp, connection->passivePort);
 
   return SUCCESS;
 }
 
 int requestFile(ftpController *connection, url *link)
 {
-  char *fileRequest, *filePath;
+  char *fileRequest, *filePath, *retrServerResponse;
 
   filePath = (char *)link->path;
 
@@ -325,11 +325,17 @@ int requestFile(ftpController *connection, url *link)
     return FAIL;
   }
 
-  if (ftpExpectCommand(connection, SERVICE_FILE_OK) == FAIL)
+  if ((retrServerResponse = retriveMessageFromServer(connection, SERVICE_FILE_OK)) == NULL)
   {
     printf("ERROR: request error\n");
     return FAIL;
   }
 
-  return 0;
+  if (findFileSizeInServerMessage(link, retrServerResponse) == FAIL)
+  {
+    printf("Error analysing server message.\n");
+    return FAIL;
+  }
+
+  return SUCCESS;
 }

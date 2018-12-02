@@ -26,6 +26,7 @@ url *getUrl()
   memset(x->user, 0, PARAM_SIZE);
 
   x->port = 0;
+  x->fileSize = 0;
 
   return x;
 }
@@ -75,6 +76,7 @@ void printInfo(url *u)
   printf("host: %s\n", u->host);
   printf("ip: %s\n", u->ip);
   printf("path: %s\n", u->path);
+  printf("size: %ld\n", u->fileSize);
   printf("port: %d\n\n", u->port);
 }
 
@@ -274,4 +276,34 @@ int extractIp(url *link)
   setIp(link, ip);
 
   return 0;
+}
+
+int findFileSizeInServerMessage(url *link, char *serverMessage)
+{
+  int pathLength = strlen((char *)link->path);
+  int standardMessageLength = strlen("150 Opening BINARY mode data connection for ");
+  int start = findOcorrenceIndex(serverMessage, '(', pathLength + standardMessageLength);
+  int end = findOcorrenceIndex(serverMessage, ')', start + 1);
+  char *sizeSegment;
+  int fileSize = 0;
+
+  if (start == -1 || end == -1)
+  {
+    printf("Couldn't find file size in message!\n");
+    return FAIL;
+  }
+
+  sizeSegment = (char *)malloc((end + 1 - start) * sizeof(char));
+
+  memcpy(sizeSegment, serverMessage + start, end + 1 - start);
+
+  if (sscanf(sizeSegment, "(%d bytes)", &fileSize) < 0)
+  {
+    printf("ERROR parsing size of file!\n");
+    return FAIL;
+  }
+
+  link->fileSize = fileSize;
+
+  return SUCCESS;
 }

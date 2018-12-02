@@ -37,6 +37,8 @@ int ftpSendCommand(ftpController *connection, char *command);
 
 int ftpExpectCommand(ftpController *connection, int expectation);
 
+char *retriveMessageFromServer(ftpController *connection, int expectation);
+
 int login(ftpController *connection, url *link);
 
 int *parsePassiveIp(char *serverMessage);

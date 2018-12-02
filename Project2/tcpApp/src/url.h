@@ -22,6 +22,7 @@ typedef struct url
   unsigned char path[PARAM_SIZE];
   unsigned int port;
   unsigned int mode;
+  long fileSize;
 } url;
 
 url *getUrl();
@@ -59,5 +60,7 @@ int parseAnonimousAuth(url *link, char *inserted);
 int parseURL(url *link, char *inserted);
 
 int extractIp(url *link);
+
+int findFileSizeInServerMessage(url *link, char *serverMessage);
 
 #endif
