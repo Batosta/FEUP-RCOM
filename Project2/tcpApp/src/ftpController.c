@@ -137,11 +137,11 @@ int ftpExpectCommand(ftpController *connection, int expectation)
       break;
     }
 
-    //printf("%s \n", frame);
+    printf("%s \n", frame);
 
-    //printf("%d =?= %d\n", code, expectation);
+    printf("%d =?= %d\n", code, expectation);
 
-  } while (code != expectation && frame[3] != ' ');
+  } while (code != expectation || frame[3] != ' ');
 
   //printf("RESPONSE: %d\n", code);
 
@@ -218,7 +218,9 @@ int login(ftpController *connection, url *link)
 
   userCommand = (char *)malloc(sizeof(user) + strlen("USER \r\n"));
 
-  sprintf(userCommand, "USER %s\n", user);
+  sprintf(userCommand, "USER %s\r\n", user);
+
+  printf("COMMAND: %s", userCommand);
 
   (void)signal(SIGALRM, timeOutWarning);
 
@@ -234,7 +236,7 @@ int login(ftpController *connection, url *link)
 
   if (ftpExpectCommand(connection, SERVICE_NEED_PASSWORD) == FAIL)
   {
-    printf("ERROR Wrong response from server\n");
+    printf("ERROR didn't send need password command 331\n");
     return FAIL;
   }
 
