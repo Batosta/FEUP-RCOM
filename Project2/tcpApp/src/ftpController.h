@@ -31,15 +31,13 @@ int setDataFileDescriptor(ftpController *x);
 
 int setPassiveIpAndPort(ftpController *x, int *ipInfo);
 
-struct sockaddr_in *getServerAdress(char *ipAdress, int port);
-
 int startConnection(char *ip, int port);
 
 int ftpSendCommand(ftpController *connection, char *command);
 
 int ftpExpectCommand(ftpController *connection, int expectation);
 
-char *retriveMessageFromServer(ftpController *connection, int expectation);
+int retriveMessageFromServer(ftpController *connection, int expectation, char *message);
 
 int login(ftpController *connection, url *link);
 

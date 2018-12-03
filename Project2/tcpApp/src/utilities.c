@@ -71,10 +71,9 @@ int openFile(char *path)
   return f;
 }
 
-char *stripFileName(char *path)
+void stripFileName(char *path, char *filename)
 {
   int index = 0, indexAux = 0, length = strlen(path);
-  char *filename;
 
   do
   {
@@ -82,15 +81,13 @@ char *stripFileName(char *path)
     indexAux = findOcorrenceIndex(path, '/', index + 1);
   } while (indexAux != -1);
 
-  filename = (char *)malloc((length - index) * sizeof(char) + 2);
+  memset(filename, 0, 256);
 
   memcpy(filename, ".", 1);
 
   memcpy(filename + 1, path + index, length - index + 1);
 
   filename[length - index + 1] = '\0';
-
-  return filename;
 }
 
 void progressBar(int fileSize, int sentBytes)

@@ -35,6 +35,7 @@ void setFtpControlFileDescriptor(ftpController *x, int fd)
 
 int setPassiveIpAndPort(ftpController *x, int *ipInfo)
 {
+
   if ((sprintf(x->passiveIp, "%d.%d.%d.%d", ipInfo[0], ipInfo[1], ipInfo[2], ipInfo[3])) < 0)
   {
     printf("Failed to set passive ip address.\n");
@@ -57,26 +58,15 @@ int setDataFileDescriptor(ftpController *x)
   return SUCCESS;
 }
 
-struct sockaddr_in *getServerAdress(char *ipAdress, int port)
-{
-  struct sockaddr_in *serverAddr;
-
-  serverAddr = (struct sockaddr_in *)malloc(sizeof(struct sockaddr_in));
-
-  bzero((char *)serverAddr, sizeof(serverAddr));
-  serverAddr->sin_family = AF_INET;
-  serverAddr->sin_addr.s_addr = inet_addr(ipAdress);
-  serverAddr->sin_port = htons(port);
-
-  return serverAddr;
-}
-
 int startConnection(char *ip, int port)
 {
   int fd;
-  struct sockaddr_in *serverAddr;
+  struct sockaddr_in serverAddr;
 
-  serverAddr = getServerAdress(ip, port);
+  bzero((char *)&serverAddr, sizeof(serverAddr));
+	serverAddr.sin_family = AF_INET;
+	serverAddr.sin_addr.s_addr = inet_addr(ip); /*32 bit Internet address network byte ordered*/
+  serverAddr.sin_port = htons(port);
 
   fd = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -86,13 +76,11 @@ int startConnection(char *ip, int port)
     return FAIL;
   }
 
-  if (connect(fd, (struct sockaddr *)serverAddr, sizeof(struct sockaddr_in)) < 0)
+  if (connect(fd, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) < 0)
   {
     perror("Failed to connect to server");
     return FAIL;
   }
-
-  free(serverAddr);
 
   return fd;
 }
@@ -104,7 +92,7 @@ int ftpSendCommand(ftpController *connection, char *command)
     return FAIL;
   }
 
-  //printf("COMMAND SENT: %s-> %ld\n", command, strlen(command));
+  //printf("\nCOMMAND SENT: %s -> %ld\n", command, strlen(command));
 
   return SUCCESS;
 }
@@ -118,12 +106,6 @@ int ftpExpectCommand(ftpController *connection, int expectation)
 
   do
   {
-    if (flag == 0)
-    {
-      alarm(1);
-      tries++;
-      flag = 1;
-    }
 
     memset(frame, 0, FRAME_LENGTH);
     memset(codeAux, 0, 3);
@@ -149,29 +131,19 @@ int ftpExpectCommand(ftpController *connection, int expectation)
 
   free(codeAux);
 
-  alarm(0);
-  tries = 1;
-  flag = 0;
-
   return response;
 }
 
-char *retriveMessageFromServer(ftpController *connection, int expectation)
+int retriveMessageFromServer(ftpController *connection, int expectation, char *message)
 {
   char frame[FRAME_LENGTH];
-  char *message, *codeAux;
+  char *codeAux;
   int code = -1;
 
   codeAux = (char *)malloc(3);
 
   do
   {
-    if (flag == 0)
-    {
-      alarm(1);
-      tries++;
-      flag = 1;
-    }
 
     memset(frame, 0, FRAME_LENGTH);
     memset(codeAux, 0, 3);
@@ -182,30 +154,18 @@ char *retriveMessageFromServer(ftpController *connection, int expectation)
     memcpy(codeAux, frame, 3);
     code = atoi(codeAux);
 
-    if (tries == TIMEOUT_MAX_TRIES)
-    {
-      printf("TIMED OUT!");
-      break;
-    }
-
   } while (code != expectation && frame[3] != ' ');
-
-  alarm(0);
-  tries = 1;
-  flag = 0;
 
   free(codeAux);
 
   if (code != expectation)
   {
-    return NULL;
+    return FAIL;
   }
-
-  message = (char *)malloc(strlen(frame) * sizeof(char));
 
   memcpy(message, frame, strlen(frame));
 
-  return message;
+  return SUCCESS;
 }
 
 int login(ftpController *connection, url *link)
@@ -219,8 +179,6 @@ int login(ftpController *connection, url *link)
   userCommand = (char *)malloc(sizeof(user) + strlen("USER \r\n"));
 
   sprintf(userCommand, "USER %s\r\n", user);
-
-  printf("COMMAND: %s", userCommand);
 
   (void)signal(SIGALRM, timeOutWarning);
 
@@ -277,12 +235,13 @@ int *parsePassiveIp(char *serverMessage)
 
 int enterPassiveMode(ftpController *connection)
 {
-  char *passiveCommand, *serverAnswer;
+  char *passiveCommand;
+  char serverAnswer[FRAME_LENGTH];
   int *ipInfo;
 
-  passiveCommand = (char *)malloc(strlen("PASV \n") * sizeof(char));
+  passiveCommand = (char *)malloc(strlen("PASV \r\n") * sizeof(char));
 
-  memcpy(passiveCommand, "PASV \n", strlen("PASV \n"));
+  memcpy(passiveCommand, "PASV \r\n", strlen("PASV \r\n"));
 
   if (ftpSendCommand(connection, passiveCommand) == FAIL)
   {
@@ -293,10 +252,7 @@ int enterPassiveMode(ftpController *connection)
 
   free(passiveCommand);
 
-  serverAnswer = retriveMessageFromServer(connection, SERVICE_ENTERING_PASSIVE_MODE);
-
-  if (serverAnswer == NULL)
-  {
+  if(retriveMessageFromServer(connection, SERVICE_ENTERING_PASSIVE_MODE, serverAnswer) == FAIL) {
     printf("SERVER didn't answer");
     return FAIL;
   }
@@ -305,20 +261,23 @@ int enterPassiveMode(ftpController *connection)
 
   setPassiveIpAndPort(connection, ipInfo);
 
-  //printf("PASSIVE IP: %s PORT: %d\n", connection->passiveIp, connection->passivePort);
+  printf("PASSIVE IP: %s PORT: %d\n", connection->passiveIp, connection->passivePort);
+
+  free(ipInfo);
 
   return SUCCESS;
 }
 
 int requestFile(ftpController *connection, url *link)
 {
-  char *fileRequest, *filePath, *retrServerResponse;
+  char *filePath;
+  char retrServerResponse[FRAME_LENGTH];
 
   filePath = link->path;
 
-  fileRequest = (char *)malloc((strlen("RETR \n") + strlen(filePath)) * sizeof(char));
+  char fileRequest[strlen("RETR \r\n") + strlen(filePath)];
 
-  sprintf(fileRequest, "RETR %s\n", filePath);
+  sprintf(fileRequest, "RETR %s\r\n", filePath);
 
   if (ftpSendCommand(connection, fileRequest) == FAIL)
   {
@@ -326,13 +285,14 @@ int requestFile(ftpController *connection, url *link)
     free(fileRequest);
     return FAIL;
   }
-
-  if ((retrServerResponse = retriveMessageFromServer(connection, SERVICE_FILE_OK)) == NULL)
+  printf("Receive server message.\n");
+  if (retriveMessageFromServer(connection, SERVICE_FILE_OK, retrServerResponse) == FAIL)
   {
     printf("ERROR: request error\n");
     return FAIL;
   }
 
+  printf("Server message received.\n");
   if (findFileSizeInServerMessage(link, retrServerResponse) == FAIL)
   {
     printf("Error analysing server message.\n");
@@ -344,11 +304,18 @@ int requestFile(ftpController *connection, url *link)
 
 int downloadFile(ftpController *connection, url *link)
 {
-  char *fileName = stripFileName(link->path);
+  printf("0\n");
+  char fileName[256];
   int fileDescriptor = openFile(fileName);
   int readBytes = 0, receivedBytes = 0;
   char frame[FRAME_LENGTH];
   double begin, delta;
+
+  printf("1\n");
+
+  stripFileName(link->path, fileName);
+
+  printf("2\n");
 
   if (fileDescriptor == -1)
   {
@@ -378,6 +345,7 @@ int downloadFile(ftpController *connection, url *link)
 
   printf("\nFile Received!\nElapsed time: %.3f seconds.\nAVG Speed: %.1f bit/s\t %.3f Mb/s\n", delta, link->fileSize / delta * 8, link->fileSize / delta / 1024 / 1024);
 
+  printf("BEFORE\n");
   if (ftpExpectCommand(connection, SERVICE_END_OF_DATA_CONNECTION) == FAIL)
   {
     printf("Failed to receive host message to close data connection\n");
@@ -393,7 +361,11 @@ int downloadFile(ftpController *connection, url *link)
 
 int logout(ftpController *connection)
 {
-  char *logoutCommand = malloc(strlen("quit\n") * sizeof(char));
+  printf("HERE");
+  printf("CALL %p\n",calloc(6 , sizeof(char)));
+  exit(1);
+  char * logoutCommand = (char*)malloc(6 * sizeof(char) );
+
   sprintf(logoutCommand, "quit\n");
 
   if (ftpSendCommand(connection, logoutCommand) == FAIL)

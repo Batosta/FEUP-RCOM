@@ -11,7 +11,7 @@ int write_frame(int fd, char *frame, unsigned int length);
 
 int openFile(char *path);
 
-char *stripFileName(char *path);
+void stripFileName(char *path, char *filename);
 
 void progressBar(int fileSize, int sentBytes);
 

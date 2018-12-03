@@ -76,13 +76,19 @@ int main(int argc, char *argv[])
     return FAIL;
   }
 
+  printf("Passive mode enabled!\n");
+
   setDataFileDescriptor(connection);
+
+  printf("Data scoket file descriptor set!\n");
 
   if (requestFile(connection, link) == FAIL)
   {
     perror("Request file from server failed!\n");
     return FAIL;
   }
+
+  printf("File requested!\n");
 
   printInfo(link);
 
@@ -91,6 +97,8 @@ int main(int argc, char *argv[])
     perror("Failed to download file.\n");
     return FAIL;
   }
+
+  printf("File dowloaded!\n");
 
   if (logout(connection) == FAIL)
   {
