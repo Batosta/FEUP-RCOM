@@ -2,6 +2,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <time.h>
 
 void printUsage()
 {
@@ -52,4 +55,71 @@ int write_frame(int fd, char *frame, unsigned int length)
   }
 
   return total;
+}
+
+//retorna descritor do ficheiro
+int openFile(char *path)
+{
+  int f = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0777);
+
+  if (f < 0)
+  {
+    perror(path);
+    return -1;
+  }
+
+  return f;
+}
+
+char *stripFileName(char *path)
+{
+  int index = 0, indexAux = 0, length = strlen(path);
+  char *filename;
+
+  do
+  {
+    index = indexAux;
+    indexAux = findOcorrenceIndex(path, '/', index + 1);
+  } while (indexAux != -1);
+
+  filename = (char *)malloc((length - index) * sizeof(char) + 2);
+
+  memcpy(filename, ".", 1);
+
+  memcpy(filename + 1, path + index, length - index + 1);
+
+  filename[length - index + 1] = '\0';
+
+  return filename;
+}
+
+void progressBar(int fileSize, int sentBytes)
+{
+  int progress = (int)(1.0 * sentBytes / fileSize * 100);
+  int length = progress / 2;
+  int i;
+
+  printf("\rPROGRESS: |");
+  for (i = 0; i < length - 1; i++)
+  {
+    printf("=");
+  }
+
+  printf(">");
+
+  for (i = 0; i < 50 - length; i++)
+  {
+    printf(" ");
+  }
+
+  printf("| %d%% (%d / %d)", progress, sentBytes, fileSize);
+
+  fflush(stdout);
+}
+
+double what_time_is_it()
+{
+  struct timespec now;
+  clock_gettime(CLOCK_REALTIME, &now);
+  return now.tv_sec + now.tv_nsec * 1e-9;
 }

@@ -44,6 +44,8 @@ int main(int argc, char *argv[])
 
   printInfo(link);
 
+  clear();
+
   connection = getController();
 
   if ((socketFd = startConnection(getIpAdress(link), getPort(link))) == FAIL)
@@ -82,7 +84,7 @@ int main(int argc, char *argv[])
     return FAIL;
   }
 
-  // printInfo(link);
+  printInfo(link);
 
   if (downloadFile(connection, link) == FAIL)
   {

@@ -342,6 +342,49 @@ int requestFile(ftpController *connection, url *link)
 
 int downloadFile(ftpController *connection, url *link)
 {
+  char *fileName = stripFileName(link->path);
+  int fileDescriptor = openFile(fileName);
+  int readBytes = 0, receivedBytes = 0;
+  char frame[FRAME_LENGTH];
+  double begin, delta;
+
+  if (fileDescriptor == -1)
+  {
+    printf("Could't open %s in current directory.\n", fileName);
+    return FAIL;
+  }
+
+  begin = what_time_is_it();
+  do
+  {
+    memset(frame, 0, FRAME_LENGTH);
+    readBytes = read(connection->dataFd, frame, FRAME_LENGTH);
+    if (readBytes == -1)
+    {
+      printf("ERROR reading from socket.\n");
+      return FAIL;
+    }
+
+    write_frame(fileDescriptor, frame, readBytes);
+
+    receivedBytes += readBytes;
+
+    progressBar(link->fileSize, receivedBytes);
+  } while (receivedBytes != link->fileSize);
+
+  delta = what_time_is_it() - begin;
+
+  printf("\nFile Received!\nElapsed time: %.3f seconds.\nAVG Speed: %.1f bit/s\t %.3f Mb/s\n", delta, link->fileSize / delta * 8, link->fileSize / delta / 1024 / 1024);
+
+  if (ftpExpectCommand(connection, SERVICE_END_OF_DATA_CONNECTION) == FAIL)
+  {
+    printf("Failed to receive host message to close data connection\n");
+    return FAIL;
+  }
+
+  close(connection->dataFd);
+
+  close(fileDescriptor);
 
   return SUCCESS;
 }
