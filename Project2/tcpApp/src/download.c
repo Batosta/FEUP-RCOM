@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
 
   connection = getController();
 
-  if ((socketFd = startConnection((const char *)getIpAdress(link), getPort(link))) == FAIL)
+  if ((socketFd = startConnection(getIpAdress(link), getPort(link))) == FAIL)
   {
     return FAIL;
   }
@@ -82,7 +82,13 @@ int main(int argc, char *argv[])
     return FAIL;
   }
 
-  printInfo(link);
+  // printInfo(link);
+
+  if (downloadFile(connection, link) == FAIL)
+  {
+    perror("Failed to download file\n");
+    return FAIL;
+  }
 
   return 0;
 }

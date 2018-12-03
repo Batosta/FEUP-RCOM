@@ -17,7 +17,7 @@ int flag = 0, tries = 1, maxTries = 1;
 
 void timeOutWarning()
 {
-  flag = 1;
+  flag = 0;
   printf("\nAtempting to connect %d/%d\n", tries, TIMEOUT_MAX_TRIES);
 }
 
@@ -57,7 +57,7 @@ int setDataFileDescriptor(ftpController *x)
   return SUCCESS;
 }
 
-struct sockaddr_in *getServerAdress(const char *ipAdress, int port)
+struct sockaddr_in *getServerAdress(char *ipAdress, int port)
 {
   struct sockaddr_in *serverAddr;
 
@@ -71,7 +71,7 @@ struct sockaddr_in *getServerAdress(const char *ipAdress, int port)
   return serverAddr;
 }
 
-int startConnection(const char *ip, int port)
+int startConnection(char *ip, int port)
 {
   int fd;
   struct sockaddr_in *serverAddr;
@@ -212,9 +212,9 @@ int login(ftpController *connection, url *link)
 {
   char *userCommand, *passwordCommand, *user, *password;
 
-  user = (char *)link->user;
+  user = link->user;
 
-  password = (char *)link->password;
+  password = link->password;
 
   userCommand = (char *)malloc(sizeof(user) + strlen("USER \r\n"));
 
@@ -312,7 +312,7 @@ int requestFile(ftpController *connection, url *link)
 {
   char *fileRequest, *filePath, *retrServerResponse;
 
-  filePath = (char *)link->path;
+  filePath = link->path;
 
   fileRequest = (char *)malloc((strlen("RETR \n") + strlen(filePath)) * sizeof(char));
 
@@ -336,6 +336,12 @@ int requestFile(ftpController *connection, url *link)
     printf("Error analysing server message.\n");
     return FAIL;
   }
+
+  return SUCCESS;
+}
+
+int downloadFile(ftpController *connection, url *link)
+{
 
   return SUCCESS;
 }

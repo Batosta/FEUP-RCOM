@@ -29,9 +29,9 @@ int setDataFileDescriptor(ftpController *x);
 
 int setPassiveIpAndPort(ftpController *x, int *ipInfo);
 
-struct sockaddr_in *getServerAdress(const char *ipAdress, int port);
+struct sockaddr_in *getServerAdress(char *ipAdress, int port);
 
-int startConnection(const char *ip, int port);
+int startConnection(char *ip, int port);
 
 int ftpSendCommand(ftpController *connection, char *command);
 
@@ -46,5 +46,7 @@ int *parsePassiveIp(char *serverMessage);
 int enterPassiveMode(ftpController *connection);
 
 int requestFile(ftpController *connection, url *link);
+
+int downloadFile(ftpController *connection, url *link);
 
 #endif

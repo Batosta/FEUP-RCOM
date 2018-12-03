@@ -34,16 +34,19 @@ url *getUrl()
 void setUser(url *u, char *username)
 {
   memcpy(u->user, username, strlen(username));
+  u->user[strlen(username)] = '\0';
 }
 
 void setPassword(url *u, char *password)
 {
   memcpy(u->password, password, strlen(password));
+  u->password[strlen(password)] = '\0';
 }
 
 void setHost(url *u, char *host)
 {
   memcpy(u->host, host, strlen(host));
+  u->host[strlen(host)] = '\0';
 }
 
 void setPort(url *u, char *portStr)
@@ -67,6 +70,7 @@ void setMode(url *u, int mode)
 void setIp(url *u, char *ip)
 {
   memcpy(u->ip, ip, strlen(ip));
+  u->ip[strlen(ip)] = '\0';
 }
 
 void printInfo(url *u)
@@ -85,7 +89,7 @@ int getMode(url *u)
   return u->mode;
 }
 
-unsigned char *getIpAdress(url *u)
+char *getIpAdress(url *u)
 {
   return u->ip;
 }
@@ -95,7 +99,7 @@ int getPort(url *u)
   return u->port;
 }
 
-unsigned char *getHost(url *u)
+char *getHost(url *u)
 {
   return u->host;
 }
@@ -263,7 +267,7 @@ int extractIp(url *link)
   char *ip;
   struct hostent *hostInfo;
 
-  host = (char *)getHost(link);
+  host = getHost(link);
 
   if ((hostInfo = gethostbyname(host)) == NULL)
   {

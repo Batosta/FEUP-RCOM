@@ -15,11 +15,11 @@
 
 typedef struct url
 {
-  unsigned char user[PARAM_SIZE];
-  unsigned char password[PARAM_SIZE];
-  unsigned char host[PARAM_SIZE];
-  unsigned char ip[PARAM_SIZE];
-  unsigned char path[PARAM_SIZE];
+  char user[PARAM_SIZE];
+  char password[PARAM_SIZE];
+  char host[PARAM_SIZE];
+  char ip[PARAM_SIZE];
+  char path[PARAM_SIZE];
   unsigned int port;
   unsigned int mode;
   long fileSize;
@@ -45,9 +45,9 @@ void printInfo();
 
 int getMode(url *u);
 
-unsigned char *getIpAdress(url *u);
+char *getIpAdress(url *u);
 
-unsigned char *getHost(url *u);
+char *getHost(url *u);
 
 int getPort(url *u);
 
