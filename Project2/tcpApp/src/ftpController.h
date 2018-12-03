@@ -13,6 +13,7 @@
 #define SERVICE_ENTERING_PASSIVE_MODE 227
 #define SERVICE_FILE_OK 150
 #define SERVICE_END_OF_DATA_CONNECTION 226
+#define SERVICE_LOGOUT 221
 
 typedef struct ftpController
 {
@@ -50,4 +51,5 @@ int requestFile(ftpController *connection, url *link);
 
 int downloadFile(ftpController *connection, url *link);
 
+int logout(ftpController *connection);
 #endif

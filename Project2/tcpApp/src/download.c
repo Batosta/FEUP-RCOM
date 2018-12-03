@@ -88,9 +88,15 @@ int main(int argc, char *argv[])
 
   if (downloadFile(connection, link) == FAIL)
   {
-    perror("Failed to download file\n");
+    perror("Failed to download file.\n");
     return FAIL;
   }
 
-  return 0;
+  if (logout(connection) == FAIL)
+  {
+    perror("Failed to logout.\n");
+    return FAIL;
+  }
+
+  return SUCCESS;
 }

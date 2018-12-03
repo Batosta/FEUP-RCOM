@@ -388,3 +388,28 @@ int downloadFile(ftpController *connection, url *link)
 
   return SUCCESS;
 }
+
+int logout(ftpController *connection)
+{
+  char *logoutCommand = malloc(strlen("quit\n") * sizeof(char));
+  sprintf(logoutCommand, "quit\n");
+
+  if (ftpSendCommand(connection, logoutCommand) == FAIL)
+  {
+    printf("ERROR: can't send logout command!\n");
+    free(logoutCommand);
+    return FAIL;
+  }
+
+  free(logoutCommand);
+
+  if (ftpExpectCommand(connection, SERVICE_LOGOUT) == FAIL)
+  {
+    printf("HOST didn't send logout command\n");
+    return FAIL;
+  }
+
+  close(connection->controlFd);
+
+  return SUCCESS;
+}
