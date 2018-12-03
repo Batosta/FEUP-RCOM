@@ -58,8 +58,8 @@ void setPort(url *u, char *portStr)
 
 void setPath(url *u, char *path)
 {
-  path[strlen(path) - 1] = '\0';
   memcpy(u->path, path, strlen(path));
+  u->path[strlen(path) - 1] = '\0';
 }
 
 void setMode(url *u, int mode)
