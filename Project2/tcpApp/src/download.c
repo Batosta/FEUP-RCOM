@@ -5,11 +5,22 @@
 #include "utilities.h"
 #include "ftpController.h"
 
+int flag = 0, tries = 1, maxTries = 1;
+
+void timeOutWarning()
+{
+  flag = 0;
+  printf("\nAtempting to connect %d/%d\n", tries, TIMEOUT_MAX_TRIES);
+  return;
+}
+
 int main(int argc, char *argv[])
 {
   url *link;
   ftpController *connection;
   int validation, socketFd;
+
+  (void)signal(SIGALRM, timeOutWarning);
 
   if (argc != 2)
   {
@@ -105,6 +116,8 @@ int main(int argc, char *argv[])
     perror("Failed to logout.\n");
     return FAIL;
   }
+
+  printf("Logout sucessfull!\n");
 
   return SUCCESS;
 }

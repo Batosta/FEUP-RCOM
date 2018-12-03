@@ -13,13 +13,7 @@
 #include <errno.h>
 #include <sys/types.h>
 
-int flag = 0, tries = 1, maxTries = 1;
-
-void timeOutWarning()
-{
-  flag = 0;
-  printf("\nAtempting to connect %d/%d\n", tries, TIMEOUT_MAX_TRIES);
-}
+extern int flag, tries, maxTries;
 
 ftpController *getController()
 {
@@ -64,8 +58,8 @@ int startConnection(char *ip, int port)
   struct sockaddr_in serverAddr;
 
   bzero((char *)&serverAddr, sizeof(serverAddr));
-	serverAddr.sin_family = AF_INET;
-	serverAddr.sin_addr.s_addr = inet_addr(ip); /*32 bit Internet address network byte ordered*/
+  serverAddr.sin_family = AF_INET;
+  serverAddr.sin_addr.s_addr = inet_addr(ip); /*32 bit Internet address network byte ordered*/
   serverAddr.sin_port = htons(port);
 
   fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -106,24 +100,23 @@ int ftpExpectCommand(ftpController *connection, int expectation)
 
   do
   {
-
+    if (flag == 0)
+    {
+      alarm(1);
+      tries++;
+      flag = 1;
+    }
     memset(frame, 0, FRAME_LENGTH);
     memset(codeAux, 0, 3);
     read(connection->controlFd, frame, FRAME_LENGTH);
     memcpy(codeAux, frame, 3);
     code = atoi(codeAux);
 
-    if (tries == TIMEOUT_MAX_TRIES)
-    {
-      printf("TIMED OUT!");
-      break;
-    }
+    //printf("%s \n", frame);
 
-    printf("%s \n", frame);
+    //printf("%d =?= %d\n", code, expectation);
 
-    printf("%d =?= %d\n", code, expectation);
-
-  } while (code != expectation || frame[3] != ' ');
+  } while (code != expectation && tries < TIMEOUT_MAX_TRIES);
 
   //printf("RESPONSE: %d\n", code);
 
@@ -154,7 +147,7 @@ int retriveMessageFromServer(ftpController *connection, int expectation, char *m
     memcpy(codeAux, frame, 3);
     code = atoi(codeAux);
 
-  } while (code != expectation && frame[3] != ' ');
+  } while (code != expectation);
 
   free(codeAux);
 
@@ -179,8 +172,6 @@ int login(ftpController *connection, url *link)
   userCommand = (char *)malloc(sizeof(user) + strlen("USER \r\n"));
 
   sprintf(userCommand, "USER %s\r\n", user);
-
-  (void)signal(SIGALRM, timeOutWarning);
 
   if (ftpSendCommand(connection, userCommand) == FAIL)
   {
@@ -252,7 +243,8 @@ int enterPassiveMode(ftpController *connection)
 
   free(passiveCommand);
 
-  if(retriveMessageFromServer(connection, SERVICE_ENTERING_PASSIVE_MODE, serverAnswer) == FAIL) {
+  if (retriveMessageFromServer(connection, SERVICE_ENTERING_PASSIVE_MODE, serverAnswer) == FAIL)
+  {
     printf("SERVER didn't answer");
     return FAIL;
   }
@@ -304,18 +296,15 @@ int requestFile(ftpController *connection, url *link)
 
 int downloadFile(ftpController *connection, url *link)
 {
-  printf("0\n");
   char fileName[256];
-  int fileDescriptor = openFile(fileName);
+  int fileDescriptor;
   int readBytes = 0, receivedBytes = 0;
   char frame[FRAME_LENGTH];
   double begin, delta;
 
-  printf("1\n");
-
   stripFileName(link->path, fileName);
 
-  printf("2\n");
+  fileDescriptor = openFile(fileName);
 
   if (fileDescriptor == -1)
   {
@@ -345,7 +334,6 @@ int downloadFile(ftpController *connection, url *link)
 
   printf("\nFile Received!\nElapsed time: %.3f seconds.\nAVG Speed: %.1f bit/s\t %.3f Mb/s\n", delta, link->fileSize / delta * 8, link->fileSize / delta / 1024 / 1024);
 
-  printf("BEFORE\n");
   if (ftpExpectCommand(connection, SERVICE_END_OF_DATA_CONNECTION) == FAIL)
   {
     printf("Failed to receive host message to close data connection\n");
@@ -361,12 +349,9 @@ int downloadFile(ftpController *connection, url *link)
 
 int logout(ftpController *connection)
 {
-  printf("HERE");
-  printf("CALL %p\n",calloc(6 , sizeof(char)));
-  exit(1);
-  char * logoutCommand = (char*)malloc(6 * sizeof(char) );
+  char *logoutCommand = (char *)malloc(6 * sizeof(char));
 
-  sprintf(logoutCommand, "quit\n");
+  sprintf(logoutCommand, "quit\r\n");
 
   if (ftpSendCommand(connection, logoutCommand) == FAIL)
   {
