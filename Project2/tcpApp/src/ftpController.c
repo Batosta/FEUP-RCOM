@@ -118,6 +118,10 @@ int ftpExpectCommand(ftpController *connection, int expectation)
 
   } while (code != expectation && tries < TIMEOUT_MAX_TRIES);
 
+  flag = 0;
+  alarm(0);
+  tries = 0;
+
   //printf("RESPONSE: %d\n", code);
 
   response = code == expectation ? SUCCESS : FAIL;
@@ -137,6 +141,12 @@ int retriveMessageFromServer(ftpController *connection, int expectation, char *m
 
   do
   {
+    if (flag == 0)
+    {
+      alarm(1);
+      tries++;
+      flag = 1;
+    }
 
     memset(frame, 0, FRAME_LENGTH);
     memset(codeAux, 0, 3);
@@ -148,6 +158,10 @@ int retriveMessageFromServer(ftpController *connection, int expectation, char *m
     code = atoi(codeAux);
 
   } while (code != expectation);
+
+  flag = 0;
+  alarm(0);
+  tries = 0;
 
   free(codeAux);
 
