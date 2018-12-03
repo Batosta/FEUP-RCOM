@@ -5,7 +5,7 @@
 #include "utilities.h"
 #include "ftpController.h"
 
-int flag = 0, tries = 1, maxTries = 1;
+int flag = 0, tries = 1;
 
 void timeOutWarning()
 {
@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
     return FAIL;
   }
 
-  printInfo(link);
+  //printInfo(link);
 
   //clear();
 
@@ -101,7 +101,7 @@ int main(int argc, char *argv[])
 
   printf("File requested!\n");
 
-  printInfo(link);
+  //printInfo(link);
 
   if (downloadFile(connection, link) == FAIL)
   {
@@ -118,6 +118,8 @@ int main(int argc, char *argv[])
   }
 
   printf("Logout sucessfull!\n");
+
+  free(connection);
 
   return SUCCESS;
 }

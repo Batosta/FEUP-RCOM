@@ -95,10 +95,11 @@ int ftpExpectCommand(ftpController *connection, int expectation)
 {
   int code = -1;
   int response;
+  int readB = 0;
   char frame[FRAME_LENGTH];
   char *codeAux = (char *)malloc(3);
 
-  do
+  while(tries < TIMEOUT_MAX_TRIES)
   {
     if (flag == 0)
     {
@@ -108,15 +109,23 @@ int ftpExpectCommand(ftpController *connection, int expectation)
     }
     memset(frame, 0, FRAME_LENGTH);
     memset(codeAux, 0, 3);
-    read(connection->controlFd, frame, FRAME_LENGTH);
-    memcpy(codeAux, frame, 3);
-    code = atoi(codeAux);
+    readB = read(connection->controlFd, frame, FRAME_LENGTH);
 
-    //printf("%s \n", frame);
+    if(readB > 3) {
+      memcpy(codeAux, frame, 3);
+      code = atoi(codeAux);
+    }
 
-    //printf("%d =?= %d\n", code, expectation);
+    // printf("READ: %d\n", readB);
+    //
+    // printf("%s \n", frame);
+    //
+    // printf("%d =?= %d\n", code, expectation);
 
-  } while (code != expectation && tries < TIMEOUT_MAX_TRIES);
+    if(code == expectation) {
+      break;
+    }
+  }
 
   flag = 0;
   alarm(0);
