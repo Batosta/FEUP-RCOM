@@ -45,8 +45,8 @@ void setPassword(url *u, char *password)
 
 void setHost(url *u, char *host)
 {
-  memcpy(u->host, host, strlen(host));
-  u->host[strlen(host)] = '\0';
+  memcpy(u->host, host, sizeof(host)+1);
+  u->host[sizeof(host)+1] = '\0';
 }
 
 void setPort(url *u, char *portStr)
@@ -59,7 +59,6 @@ void setPort(url *u, char *portStr)
 void setPath(url *u, char *path)
 {
   memcpy(u->path, path, strlen(path));
-  u->path[strlen(path) - 1] = '\0';
 }
 
 void setMode(url *u, int mode)
@@ -169,15 +168,18 @@ int parseUserAuthUrl(url *link, char *inserted)
   {
     return FAIL;
   }
-  username = (char *)malloc(usernameEnd - usernameStart);
+  username = (char *)malloc(usernameEnd - usernameStart + 1);
   memcpy(username, inserted + usernameStart, usernameEnd - usernameStart);
+  username[usernameEnd - usernameStart] = '\0';
 
   if ((pwEnd = findOcorrenceIndex(inserted, '@', usernameEnd + 1)) == -1)
   {
     return FAIL;
   }
+
   password = (char *)malloc(pwEnd - (usernameEnd + 1));
   memcpy(password, inserted + usernameEnd + 1, pwEnd - (usernameEnd + 1));
+  password[pwEnd - (usernameEnd + 1)] = '\0';
 
   if ((hostEnd = findOcorrenceIndex(inserted, ':', pwEnd + 1)) == -1)
   {
@@ -185,6 +187,7 @@ int parseUserAuthUrl(url *link, char *inserted)
   }
   host = (char *)malloc(hostEnd - (pwEnd + 2));
   memcpy(host, inserted + pwEnd + 2, hostEnd - (pwEnd + 2));
+  host[hostEnd - (pwEnd + 2)] = '\0';
 
   if ((portEnd = findOcorrenceIndex(inserted, '/', hostEnd + 1)) == -1)
   {
@@ -193,8 +196,8 @@ int parseUserAuthUrl(url *link, char *inserted)
   portStr = (char *)malloc(portEnd - (hostEnd + 1));
   memcpy(portStr, inserted + hostEnd + 1, portEnd - (hostEnd + 1));
 
-  path = (char *)malloc(length - portEnd);
-  memcpy(path, inserted + portEnd, length - portEnd);
+  path = (char *)malloc(length - hostEnd + 1);
+  memcpy(path, inserted + hostEnd, length - hostEnd);
 
   setUser(link, username);
   setPassword(link, password);
@@ -230,10 +233,11 @@ int parseAnonimousAuth(url *link, char *inserted)
     return FAIL;
   }
 
-  host = (char *)malloc(hostEnd - hostStart);
+  host = (char *)malloc(hostEnd - hostStart+1);
   memcpy(host, inserted + hostStart, hostEnd - hostStart);
+  host[hostEnd - hostStart] = '\0';
 
-  path = (char *)malloc(length - hostEnd);
+  path = (char *)malloc(length - hostEnd + 1);
   memcpy(path, inserted + hostEnd, length - hostEnd);
 
   setHost(link, host);
