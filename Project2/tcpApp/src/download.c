@@ -5,22 +5,11 @@
 #include "utilities.h"
 #include "ftpController.h"
 
-int flag = 0, tries = 1;
-
-void timeOutWarning()
-{
-  flag = 0;
-  printf("\nAtempting to connect %d/%d\n", tries, TIMEOUT_MAX_TRIES);
-  return;
-}
-
 int main(int argc, char *argv[])
 {
   url *link;
   ftpController *connection;
   int validation, socketFd;
-
-  (void)signal(SIGALRM, timeOutWarning);
 
   if (argc != 2)
   {
@@ -55,7 +44,7 @@ int main(int argc, char *argv[])
 
   //printInfo(link);
 
-  //clear();
+  clear();
 
   connection = getController();
 
@@ -66,12 +55,16 @@ int main(int argc, char *argv[])
 
   setFtpControlFileDescriptor(connection, socketFd);
 
+  printf("Checking availability.\n");
+
   if (ftpExpectCommand(connection, SERVICE_READY_NEW_USER) == FAIL)
   {
     perror("HOST didn't send the right code");
 
     return FAIL;
   }
+
+  printf("Server up. Authenticating.\n");
 
   if (login(connection, link) == FAIL)
   {

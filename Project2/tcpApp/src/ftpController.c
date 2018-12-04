@@ -13,8 +13,6 @@
 #include <errno.h>
 #include <sys/types.h>
 
-extern int flag, tries, maxTries;
-
 ftpController *getController()
 {
   ftpController *x = malloc(sizeof(ftpController));
@@ -99,21 +97,36 @@ int ftpExpectCommand(ftpController *connection, int expectation)
   char frame[FRAME_LENGTH];
   char *codeAux = (char *)malloc(3);
 
-  while(tries < TIMEOUT_MAX_TRIES)
+  while (1)
   {
-    if (flag == 0)
-    {
-      alarm(1);
-      tries++;
-      flag = 1;
-    }
     memset(frame, 0, FRAME_LENGTH);
     memset(codeAux, 0, 3);
     readB = read(connection->controlFd, frame, FRAME_LENGTH);
 
-    if(readB > 3) {
+    if (readB > 3)
+    {
+      // printf("READ! %s\n", frame);
       memcpy(codeAux, frame, 3);
       code = atoi(codeAux);
+
+      // printf("%d =?= %d\n", code, expectation);
+
+      if (code == 220 && expectation != 220)
+      {
+        // printf("\t\t\tPASSING\n");
+        continue;
+      }
+      else if (code == 220 && expectation == 220)
+      {
+        // printf("Server available code\n");
+        break;
+      }
+      if (frame[3] == ' ' || frame[3] == '\n' || frame[3] == '\0' || frame[3] == '-')
+      {
+        // printf("must break CODE: %d\n", (int)frame[3]);
+        // printf("frame: %s \n", frame);
+        break;
+      }
     }
 
     // printf("READ: %d\n", readB);
@@ -121,17 +134,7 @@ int ftpExpectCommand(ftpController *connection, int expectation)
     // printf("%s \n", frame);
     //
     // printf("%d =?= %d\n", code, expectation);
-
-    if(code == expectation) {
-      break;
-    }
   }
-
-  flag = 0;
-  alarm(0);
-  tries = 0;
-
-  //printf("RESPONSE: %d\n", code);
 
   response = code == expectation ? SUCCESS : FAIL;
 
@@ -144,33 +147,42 @@ int retriveMessageFromServer(ftpController *connection, int expectation, char *m
 {
   char frame[FRAME_LENGTH];
   char *codeAux;
-  int code = -1;
+  int code = -1, readB = 0;
 
   codeAux = (char *)malloc(3);
 
-  do
+  while (1)
   {
-    if (flag == 0)
-    {
-      alarm(1);
-      tries++;
-      flag = 1;
-    }
-
     memset(frame, 0, FRAME_LENGTH);
     memset(codeAux, 0, 3);
-    read(connection->controlFd, frame, FRAME_LENGTH);
+    readB = read(connection->controlFd, frame, FRAME_LENGTH);
 
-    //printf("FRAME -> %s\n", frame);
+    if (readB > 3)
+    {
+      // printf("READ! %s\n", frame);
+      memcpy(codeAux, frame, 3);
+      code = atoi(codeAux);
 
-    memcpy(codeAux, frame, 3);
-    code = atoi(codeAux);
+      // printf("%d =?= %d\n", code, expectation);
 
-  } while (code != expectation);
-
-  flag = 0;
-  alarm(0);
-  tries = 0;
+      if (code == 220 && expectation != 220)
+      {
+        // printf("\t\t\tPASSING\n");
+        continue;
+      }
+      else if (code == 220 && expectation == 220)
+      {
+        // printf("Server available code\n");
+        break;
+      }
+      if (frame[3] == ' ' || frame[3] == '\n' || frame[3] == '\0' || frame[3] == '-')
+      {
+        // printf("must break CODE: %d\n", (int)frame[3]);
+        // printf("frame: %s \n", frame);
+        break;
+      }
+    }
+  }
 
   free(codeAux);
 
@@ -300,14 +312,13 @@ int requestFile(ftpController *connection, url *link)
     free(fileRequest);
     return FAIL;
   }
-  printf("Receive server message.\n");
+
   if (retriveMessageFromServer(connection, SERVICE_FILE_OK, retrServerResponse) == FAIL)
   {
     printf("ERROR: request error\n");
     return FAIL;
   }
 
-  printf("Server message received.\n");
   if (findFileSizeInServerMessage(link, retrServerResponse) == FAIL)
   {
     printf("Error analysing server message.\n");
@@ -336,6 +347,7 @@ int downloadFile(ftpController *connection, url *link)
   }
 
   begin = what_time_is_it();
+
   do
   {
     memset(frame, 0, FRAME_LENGTH);
