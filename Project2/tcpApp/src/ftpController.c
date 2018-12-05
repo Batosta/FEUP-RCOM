@@ -27,7 +27,7 @@ void setFtpControlFileDescriptor(ftpController *x, int fd)
 
 int setPassiveIpAndPort(ftpController *x, int *ipInfo)
 {
-  x->passiveIp = (char *)malloc(17);
+
   if ((sprintf(x->passiveIp, "%d.%d.%d.%d", ipInfo[0], ipInfo[1], ipInfo[2], ipInfo[3])) < 0)
   {
     printf("Failed to set passive ip address.\n");
@@ -95,7 +95,7 @@ int ftpExpectCommand(ftpController *connection, int expectation)
   int response;
   int readB = 0;
   char frame[FRAME_LENGTH];
-  char *codeAux = (char *)malloc(4);
+  char codeAux[3];
 
   while (1)
   {
@@ -107,7 +107,6 @@ int ftpExpectCommand(ftpController *connection, int expectation)
     {
       // printf("READ! %s\n", frame);
       memcpy(codeAux, frame, 3);
-      codeAux[3] = '\0';
       code = atoi(codeAux);
 
       // printf("%d =?= %d\n", code, expectation);
@@ -145,10 +144,8 @@ int ftpExpectCommand(ftpController *connection, int expectation)
 int retriveMessageFromServer(ftpController *connection, int expectation, char *message)
 {
   char frame[FRAME_LENGTH];
-  char codeAux[3];
+  char codeAux[4];
   int code = -1, readB = 0;
-
-  codeAux = (char *)malloc(4);
 
   while (1)
   {
@@ -202,7 +199,7 @@ int login(ftpController *connection, url *link)
 
   password = link->password;
 
-  userCommand = (char *)malloc(strlen(user) + strlen("USER  \r\n"));
+  userCommand = (char *)malloc(sizeof(user) + strlen("USER \r\n"));
 
   sprintf(userCommand, "USER %s\r\n", user);
 
@@ -222,7 +219,7 @@ int login(ftpController *connection, url *link)
     return FAIL;
   }
 
-  passwordCommand = (char *)malloc(strlen(password) + strlen("PASS  \r\n"));
+  passwordCommand = (char *)malloc(sizeof(password) + strlen("PASS \r\n"));
 
   sprintf(passwordCommand, "PASS %s\r\n", password);
 
@@ -246,7 +243,7 @@ int login(ftpController *connection, url *link)
 
 int *parsePassiveIp(char *serverMessage)
 {
-  int *ipInfo = (int *)calloc(6, sizeof(int));
+  int *ipInfo = (int *)malloc(6 * sizeof(int));
 
   if ((sscanf(serverMessage, "227 Entering Passive Mode (%d,%d,%d,%d,%d,%d).", &ipInfo[0], &ipInfo[1], &ipInfo[2], &ipInfo[3], &ipInfo[4], &ipInfo[5])) < 0)
   {
@@ -263,11 +260,9 @@ int enterPassiveMode(ftpController *connection)
   char serverAnswer[FRAME_LENGTH];
   int *ipInfo;
 
-  passiveCommand = (char *)malloc(strlen("PASV  \r\n") * sizeof(char));
+  passiveCommand = (char *)malloc(strlen("PASV \r\n") * sizeof(char));
 
   memcpy(passiveCommand, "PASV \r\n", strlen("PASV \r\n"));
-
-  passiveCommand[strlen("PASV \r\n")] = '\0';
 
   if (ftpSendCommand(connection, passiveCommand) == FAIL)
   {
@@ -280,7 +275,7 @@ int enterPassiveMode(ftpController *connection)
 
   if (retriveMessageFromServer(connection, SERVICE_ENTERING_PASSIVE_MODE, serverAnswer) == FAIL)
   {
-    printf("SERVER didn't answer");
+    printf("SERVER didn't answer\n");
     return FAIL;
   }
 
@@ -302,11 +297,11 @@ int requestFile(ftpController *connection, url *link)
 
   filePath = link->path;
 
-  char fileRequest[strlen("RETR  \r\n") + strlen(filePath)];
+  char fileRequest[strlen("RETR . \r\n") + strlen(filePath)];
 
-  sprintf(fileRequest, "RETR %s\r\n", filePath);
+  sprintf(fileRequest, "RETR .%s\r\n", filePath);
 
-  fileRequest[strlen("RETR  \r\n") + strlen(filePath)] = '\0';
+  fileRequest[strlen("RETR . \r\n") + strlen(filePath)] = '\0';
 
   if (ftpSendCommand(connection, fileRequest) == FAIL)
   {
