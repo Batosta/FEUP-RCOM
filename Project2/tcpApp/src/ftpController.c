@@ -381,7 +381,7 @@ int downloadFile(ftpController *connection, url *link)
 
 int logout(ftpController *connection)
 {
-  char logoutCommand[6];
+  char logoutCommand[7];
 
   sprintf(logoutCommand, "quit\r\n");
 
