@@ -45,8 +45,8 @@ void setPassword(url *u, char *password)
 
 void setHost(url *u, char *host)
 {
-  memcpy(u->host, host, sizeof(host)+1);
-  u->host[sizeof(host)+1] = '\0';
+  memcpy(u->host, host, strlen(host) + 1);
+  u->host[strlen(host) + 1] = '\0';
 }
 
 void setPort(url *u, char *portStr)
@@ -233,12 +233,15 @@ int parseAnonimousAuth(url *link, char *inserted)
     return FAIL;
   }
 
-  host = (char *)malloc(hostEnd - hostStart+1);
+  host = (char *)malloc(hostEnd - hostStart + 1);
   memcpy(host, inserted + hostStart, hostEnd - hostStart);
   host[hostEnd - hostStart] = '\0';
 
+  //printf("PARSED: %s\n", host);
+
   path = (char *)malloc(length - hostEnd + 1);
   memcpy(path, inserted + hostEnd, length - hostEnd);
+  path[length - hostEnd] = '\0';
 
   setHost(link, host);
   setPath(link, path);
@@ -301,9 +304,11 @@ int findFileSizeInServerMessage(url *link, char *serverMessage)
     return FAIL;
   }
 
-  sizeSegment = (char *)malloc((end + 1 - start) * sizeof(char));
+  sizeSegment = (char *)malloc((end + 2 - start) * sizeof(char));
 
   memcpy(sizeSegment, serverMessage + start, end + 1 - start);
+
+  sizeSegment[(end + 2 - start)] = '\0';
 
   if (sscanf(sizeSegment, "(%d bytes)", &fileSize) < 0)
   {
