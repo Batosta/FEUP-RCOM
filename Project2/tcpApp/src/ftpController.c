@@ -95,7 +95,7 @@ int ftpExpectCommand(ftpController *connection, int expectation)
   int response;
   int readB = 0;
   char frame[FRAME_LENGTH];
-  char *codeAux = (char *)malloc(3);
+  char codeAux[3];
 
   while (1)
   {
@@ -138,18 +138,14 @@ int ftpExpectCommand(ftpController *connection, int expectation)
 
   response = code == expectation ? SUCCESS : FAIL;
 
-  free(codeAux);
-
   return response;
 }
 
 int retriveMessageFromServer(ftpController *connection, int expectation, char *message)
 {
   char frame[FRAME_LENGTH];
-  char *codeAux;
+  char codeAux[3];
   int code = -1, readB = 0;
-
-  codeAux = (char *)malloc(3);
 
   while (1)
   {
@@ -183,8 +179,6 @@ int retriveMessageFromServer(ftpController *connection, int expectation, char *m
       }
     }
   }
-
-  free(codeAux);
 
   if (code != expectation)
   {
@@ -384,18 +378,15 @@ int downloadFile(ftpController *connection, url *link)
 
 int logout(ftpController *connection)
 {
-  char *logoutCommand = (char *)malloc(6 * sizeof(char));
+  char logoutCommand[6];
 
   sprintf(logoutCommand, "quit\r\n");
 
   if (ftpSendCommand(connection, logoutCommand) == FAIL)
   {
     printf("ERROR: can't send logout command!\n");
-    free(logoutCommand);
     return FAIL;
   }
-
-  free(logoutCommand);
 
   if (ftpExpectCommand(connection, SERVICE_LOGOUT) == FAIL)
   {
