@@ -95,7 +95,7 @@ int ftpExpectCommand(ftpController *connection, int expectation)
   int response;
   int readB = 0;
   char frame[FRAME_LENGTH];
-  char codeAux[3];
+  char codeAux[4];
 
   while (1)
   {
@@ -107,6 +107,7 @@ int ftpExpectCommand(ftpController *connection, int expectation)
     {
       // printf("READ! %s\n", frame);
       memcpy(codeAux, frame, 3);
+      codeAux[3] = '\0';
       code = atoi(codeAux);
 
       // printf("%d =?= %d\n", code, expectation);
