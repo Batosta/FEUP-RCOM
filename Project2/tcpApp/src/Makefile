@@ -2,7 +2,7 @@
 
 COMPILER_TYPE= gnu
 CC = gcc
-CCFLAGS= -Wall
+CCFLAGS= -Wall -g
 
 PROG = download
 

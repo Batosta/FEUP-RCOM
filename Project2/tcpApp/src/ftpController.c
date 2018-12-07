@@ -27,12 +27,15 @@ void setFtpControlFileDescriptor(ftpController *x, int fd)
 
 int setPassiveIpAndPort(ftpController *x, int *ipInfo)
 {
+  x->passiveIp = calloc(17, sizeof(char));
 
   if ((sprintf(x->passiveIp, "%d.%d.%d.%d", ipInfo[0], ipInfo[1], ipInfo[2], ipInfo[3])) < 0)
   {
     printf("Failed to set passive ip address.\n");
     return FAIL;
   }
+
+  x->passiveIp[16] = '\0';
 
   x->passivePort = ipInfo[4] * 256 + ipInfo[5];
 
@@ -156,7 +159,7 @@ int retriveMessageFromServer(ftpController *connection, int expectation, char *m
 
     if (readB > 3)
     {
-      // printf("READ! %s\n", frame);
+      printf("READ! %s\n", frame);
       memcpy(codeAux, frame, 3);
       codeAux[3] = '\0';
       code = atoi(codeAux);
@@ -200,9 +203,13 @@ int login(ftpController *connection, url *link)
 
   password = link->password;
 
-  userCommand = (char *)malloc(sizeof(user) + strlen("USER \r\n"));
+  printf("USER: %s LENGTH: %ld\n", user, strlen(user));
+
+  userCommand = (char *)malloc(strlen(user) + strlen("USER \r\n") + 1);
 
   sprintf(userCommand, "USER %s\r\n", user);
+
+  userCommand[strlen(user) + strlen("USER \r\n")] = '\0';
 
   if (ftpSendCommand(connection, userCommand) == FAIL)
   {
@@ -220,9 +227,11 @@ int login(ftpController *connection, url *link)
     return FAIL;
   }
 
-  passwordCommand = (char *)malloc(sizeof(password) + strlen("PASS \r\n"));
+  passwordCommand = (char *)malloc(strlen(password) + strlen("PASS \r\n") + 1);
 
   sprintf(passwordCommand, "PASS %s\r\n", password);
+
+  passwordCommand[strlen(password) + strlen("PASS \r\n")] = '\0';
 
   if (ftpSendCommand(connection, passwordCommand) == FAIL)
   {
@@ -244,9 +253,11 @@ int login(ftpController *connection, url *link)
 
 int *parsePassiveIp(char *serverMessage)
 {
-  int *ipInfo = (int *)malloc(6 * sizeof(int));
+  int *ipInfo = (int *)calloc(6, sizeof(int)), status = -1;
 
-  if ((sscanf(serverMessage, "227 Entering Passive Mode (%d,%d,%d,%d,%d,%d).", &ipInfo[0], &ipInfo[1], &ipInfo[2], &ipInfo[3], &ipInfo[4], &ipInfo[5])) < 0)
+  status = sscanf(serverMessage, "227 Entering Passive Mode (%d,%d,%d,%d,%d,%d).", &ipInfo[0], &ipInfo[1], &ipInfo[2], &ipInfo[3], &ipInfo[4], &ipInfo[5]);
+
+  if (status < 0)
   {
     printf("Couldn't parse passive IP info.\n");
     return NULL;
@@ -261,9 +272,11 @@ int enterPassiveMode(ftpController *connection)
   char serverAnswer[FRAME_LENGTH];
   int *ipInfo;
 
-  passiveCommand = (char *)malloc(strlen("PASV \r\n") * sizeof(char));
+  passiveCommand = (char *)malloc(strlen("PASV \r\n") * sizeof(char) + 1);
 
   memcpy(passiveCommand, "PASV \r\n", strlen("PASV \r\n"));
+
+  passiveCommand[strlen("PASV \r\n")] = '\0';
 
   if (ftpSendCommand(connection, passiveCommand) == FAIL)
   {

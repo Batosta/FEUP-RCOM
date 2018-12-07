@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
 
   //printInfo(link);
 
-  clear();
+  //clear();
 
   connection = getController();
 
@@ -111,6 +111,10 @@ int main(int argc, char *argv[])
   }
 
   printf("Logout sucessfull!\n");
+
+  free(link);
+
+  free(connection->passiveIp);
 
   free(connection);
 
