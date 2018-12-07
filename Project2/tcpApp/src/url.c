@@ -238,8 +238,6 @@ int parseAnonimousAuth(url *link, char *inserted)
   memcpy(host, inserted + hostStart, hostEnd - hostStart);
   host[hostEnd - hostStart] = '\0';
 
-  printf("PARSED: %s\n", host);
-
   path = (char *)malloc(length - hostEnd + 1);
   memcpy(path, inserted + hostEnd, length - hostEnd);
   path[length - hostEnd] = '\0';
@@ -276,8 +274,6 @@ int extractIp(url *link)
   struct hostent *hostInfo;
 
   host = getHost(link);
-
-  printf("HOST: %s\n", host);
 
   if ((hostInfo = gethostbyname(host)) == NULL)
   {

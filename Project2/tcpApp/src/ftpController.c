@@ -159,7 +159,7 @@ int retriveMessageFromServer(ftpController *connection, int expectation, char *m
 
     if (readB > 3)
     {
-      printf("READ! %s\n", frame);
+      //printf("READ! %s\n", frame);
       memcpy(codeAux, frame, 3);
       codeAux[3] = '\0';
       code = atoi(codeAux);
@@ -202,8 +202,6 @@ int login(ftpController *connection, url *link)
   user = link->user;
 
   password = link->password;
-
-  printf("USER: %s LENGTH: %ld\n", user, strlen(user));
 
   userCommand = (char *)malloc(strlen(user) + strlen("USER \r\n") + 1);
 

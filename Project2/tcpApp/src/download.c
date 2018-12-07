@@ -17,6 +17,8 @@ int main(int argc, char *argv[])
     return FAIL;
   }
 
+  clear();
+
   validation = validURL(argv[1]);
 
   if (validation == FAIL)
@@ -43,8 +45,6 @@ int main(int argc, char *argv[])
   }
 
   //printInfo(link);
-
-  //clear();
 
   connection = getController();
 
